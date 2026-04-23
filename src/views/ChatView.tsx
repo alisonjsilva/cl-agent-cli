@@ -1,25 +1,53 @@
 import React from "react";
 import { Box, Text } from "ink";
-import { Spinner } from "@inkjs/ui";
 import { ChatMessage } from "../components/ChatMessage.js";
 import { RichText } from "../components/RichText.js";
+import { ThinkingIndicator } from "../components/ThinkingIndicator.js";
+import { IntroBanner } from "../components/IntroBanner.js";
 import { ChatEntry } from "../hooks/useAgent.js";
+import type { SessionStats } from "../ai/agent.js";
+import type { EnvironmentType } from "../config/schema.js";
 
 interface ChatViewProps {
   entries: ChatEntry[];
   busy: boolean;
   streamingText: string;
+  provider: string;
+  model: string;
+  account: string | null;
+  env: EnvironmentType;
+  toolsCount: number;
+  sessionStats?: SessionStats;
 }
 
-export const ChatView: React.FC<ChatViewProps> = ({ entries, busy, streamingText }) => {
+export const ChatView: React.FC<ChatViewProps> = ({
+  entries,
+  busy,
+  streamingText,
+  provider,
+  model,
+  account,
+  env,
+  toolsCount,
+  sessionStats,
+}) => {
   const hasContent = entries.length > 0 || busy;
 
   return (
     <Box flexDirection="column" flexGrow={1} width="100%">
-      {!hasContent && <EmptyState />}
+      {!hasContent && (
+        <IntroBanner
+          version="0.1.0"
+          provider={provider}
+          model={model}
+          account={account}
+          env={env}
+          toolsCount={toolsCount}
+        />
+      )}
 
-      {entries.map((entry, i) => (
-        <ChatMessage key={i} entry={entry} />
+      {entries.map((entry) => (
+        <ChatMessage key={entry.id} entry={entry} />
       ))}
 
       {busy && streamingText && (
@@ -37,33 +65,41 @@ export const ChatView: React.FC<ChatViewProps> = ({ entries, busy, streamingText
         </Box>
       )}
 
-      {busy && !streamingText && (
-        <Box marginTop={1} paddingLeft={2}>
-          <Spinner label="thinking…" />
-        </Box>
-      )}
+      {busy && !streamingText && <ThinkingIndicator />}
+
+      {sessionStats && hasContent && <SessionStatsBar stats={sessionStats} />}
     </Box>
   );
 };
 
-const EmptyState: React.FC = () => (
-  <Box
-    borderStyle="round"
-    borderColor="gray"
-    flexDirection="column"
-    paddingX={1}
-    width="100%"
-  >
-    <Text color="green" bold>Ask about your Commerce Layer data</Text>
-    <Text dimColor>
-      Natural language for orders, customers, shipments, prices, returns, and more.
-    </Text>
-    <Box flexDirection="column" marginTop={1}>
-      <Text color="cyan">- list 3 latest orders</Text>
-      <Text color="cyan">- show order status for #107479454</Text>
-      <Text color="cyan">- find customer john@example.com</Text>
-      <Text color="cyan">- /accounts to manage CL accounts</Text>
-      <Text color="cyan">- /provider to switch LLM provider</Text>
+const SessionStatsBar: React.FC<{ stats: SessionStats }> = ({ stats }) => {
+  if (stats.totalRequests === 0) return null;
+
+  const elapsed = Math.floor((Date.now() - stats.sessionStartedAt) / 1000);
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = elapsed % 60;
+  const duration = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+
+  const formatTokens = (n: number): string => {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+    return String(n);
+  };
+
+  return (
+    <Box paddingX={1} marginTop={1} gap={2}>
+      <Text dimColor>
+        tokens: {formatTokens(stats.inputTokens)}in/{formatTokens(stats.outputTokens)}out
+      </Text>
+      <Text dimColor>
+        requests: {stats.totalRequests}
+      </Text>
+      {stats.cacheHitTokens > 0 && (
+        <Text dimColor>
+          cache: {formatTokens(stats.cacheHitTokens)}
+        </Text>
+      )}
+      <Text dimColor>session: {duration}</Text>
     </Box>
-  </Box>
-);
+  );
+};

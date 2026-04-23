@@ -19,6 +19,7 @@ import { SettingsView } from "./views/SettingsView.js";
 import { AccountManager } from "./views/AccountManager.js";
 import { useKeybindings } from "./hooks/useKeybindings.js";
 import { getErrorMessage } from "./utils/formatting.js";
+import { logError } from "./utils/logger.js";
 
 export const App: React.FC = () => {
   const [cfg, setCfg] = useState<Config | null>(null);
@@ -74,7 +75,9 @@ const AppInner: React.FC = () => {
       );
       setTools(reg.tools);
       setToolCount(reg.toolCount);
-    } catch { /* ignore */ }
+    } catch (err: unknown) {
+      logError("loadTools", err);
+    }
   }, []);
 
   useEffect(() => {
@@ -84,7 +87,7 @@ const AppInner: React.FC = () => {
     loadTools(cfg);
   }, [cfg, account, loadTools]);
 
-  const { entries, busy, streamingText, send, clear, append } = useAgent(cfg, tools);
+  const { entries, busy, streamingText, sessionStats, send, clear, append } = useAgent(cfg, tools);
 
   const [input, setInput] = useState("");
   const env = account ? detectEnvironment(account) : "unknown";
@@ -250,7 +253,17 @@ const AppInner: React.FC = () => {
         busy={busy}
       />
 
-      <ChatView entries={entries} busy={busy} streamingText={streamingText} />
+      <ChatView
+        entries={entries}
+        busy={busy}
+        streamingText={streamingText}
+        provider={cfg.provider}
+        model={cfg.model}
+        account={cfg.activeAccount}
+        env={env}
+        toolsCount={toolCount}
+        sessionStats={sessionStats}
+      />
 
       {pendingConfirm && (
         <ConfirmDialog

@@ -1,11 +1,12 @@
 import { useState, useRef, useCallback } from "react";
 import type { ToolSet } from "ai";
-import { Agent, type AgentEvent } from "../ai/agent.js";
+import { Agent, type AgentEvent, type SessionStats } from "../ai/agent.js";
 import { makeModel } from "../ai/providers.js";
 import { Config } from "../config/schema.js";
 import { stripTextToolCalls, compactToolResult } from "../utils/formatting.js";
 
 export interface ChatEntry {
+  id: number;
   kind: "user" | "assistant" | "tool_call" | "tool_result" | "info" | "error";
   text: string;
   toolName?: string;
@@ -14,16 +15,18 @@ export interface ChatEntry {
 }
 
 const MAX_ENTRIES = 120;
+let entrySeq = 0;
 
 export function useAgent(cfg: Config, tools: ToolSet) {
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [busy, setBusy] = useState(false);
   const [streamingText, setStreamingText] = useState("");
+  const [sessionStats, setSessionStats] = useState<SessionStats | undefined>();
   const agentRef = useRef<Agent | null>(null);
 
-  const append = useCallback((entry: ChatEntry) => {
+  const append = useCallback((entry: Omit<ChatEntry, "id">) => {
     setEntries((prev) => {
-      const next = [...prev, entry];
+      const next = [...prev, { ...entry, id: ++entrySeq }];
       return next.length > MAX_ENTRIES ? next.slice(-MAX_ENTRIES) : next;
     });
   }, []);
@@ -92,6 +95,9 @@ export function useAgent(cfg: Config, tools: ToolSet) {
         case "error":
           append({ kind: "error", text: e.message });
           break;
+        case "stats":
+          setSessionStats(e.stats);
+          break;
         case "done": {
           const { cleaned, hadToolCalls } = stripTextToolCalls(currentText);
           if (hadToolCalls) detectedTextToolCalls = true;
@@ -133,8 +139,9 @@ export function useAgent(cfg: Config, tools: ToolSet) {
   const clear = useCallback(() => {
     setEntries([]);
     setStreamingText("");
+    setSessionStats(undefined);
     agentRef.current?.clearHistory();
   }, []);
 
-  return { entries, busy, streamingText, send, clear, append };
+  return { entries, busy, streamingText, sessionStats, send, clear, append };
 }

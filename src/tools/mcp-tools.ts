@@ -1,9 +1,35 @@
 import type { ToolSet } from "ai";
 import { createMCPClient, type MCPClient } from "@ai-sdk/mcp";
 import { MCPServerConfig } from "../config/schema.js";
-import { debugLog } from "../utils/logger.js";
+import { debugLog, logSecurityEvent } from "../utils/logger.js";
 import type { MutationConfirmFn } from "./cl-tools.js";
 import { UserDeclinedError } from "./cl-tools.js";
+
+/** Environment variables safe to inherit in stdio MCP subprocesses. */
+const SAFE_ENV_KEYS = [
+  // System essentials
+  "PATH", "HOME", "USER", "LOGNAME", "SHELL", "TERM", "TMPDIR", "TMP", "TEMP",
+  // Locale
+  "LANG", "LC_ALL", "LC_CTYPE",
+  // Node / runtime
+  "NODE_ENV", "NODE_EXTRA_CA_CERTS",
+  // XDG directories
+  "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME", "XDG_RUNTIME_DIR",
+  // Proxy / TLS (required for network access behind firewalls)
+  "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "SSL_CERT_FILE", "SSL_CERT_DIR",
+  "http_proxy", "https_proxy", "no_proxy",
+  // Windows essentials
+  "SystemRoot", "ComSpec", "PATHEXT", "APPDATA", "USERPROFILE", "HOMEDRIVE", "HOMEPATH",
+];
+
+function buildStdioEnv(configEnv?: Record<string, string>): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const key of SAFE_ENV_KEYS) {
+    const val = process.env[key];
+    if (val !== undefined) env[key] = val;
+  }
+  return { ...env, ...(configEnv ?? {}) };
+}
 
 const activeClients: MCPClient[] = [];
 
@@ -84,7 +110,7 @@ async function connectMCPServer(
       transport: new Experimental_StdioMCPTransport({
         command: config.command,
         args: config.args ?? [],
-        env: { ...process.env, ...(config.env ?? {}) } as Record<string, string>,
+        env: buildStdioEnv(config.env),
       }),
       name: `cl-agent-${name}`,
     });
@@ -97,7 +123,9 @@ export async function closeMCPClients(): Promise<void> {
   for (const client of activeClients) {
     try {
       await client.close();
-    } catch { /* ignore */ }
+    } catch (err: unknown) {
+      debugLog("warn", `MCP client close error: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
   activeClients.length = 0;
 }

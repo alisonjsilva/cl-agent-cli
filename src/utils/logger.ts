@@ -29,3 +29,32 @@ export function logError(context: string, err: unknown): void {
     : String(err);
   debugLog("error", `[${context}] ${msg}`);
 }
+
+/** Always logs to disk regardless of CL_AGENT_DEBUG — for audit-worthy events. */
+export function logSecurityEvent(event: string, details?: string): void {
+  ensureDir();
+  const ts = new Date().toISOString();
+  const sanitized = details ? sanitizeLogOutput(details) : "";
+  const line = sanitized
+    ? `[${ts}] SECURITY ${event} — ${sanitized}\n`
+    : `[${ts}] SECURITY ${event}\n`;
+  try {
+    appendFileSync(LOG_FILE, line);
+  } catch { /* best-effort */ }
+}
+
+const SECRET_PATTERNS = [
+  /Bearer\s+\S+/gi,
+  /sk-[a-zA-Z0-9_-]{10,}/g,
+  /eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]*/g,
+  /client_secret["\s:=]+\S+/gi,
+  /access_token["\s:=]+\S+/gi,
+];
+
+function sanitizeLogOutput(text: string): string {
+  let out = text.slice(0, 500);
+  for (const re of SECRET_PATTERNS) {
+    out = out.replace(re, "[REDACTED]");
+  }
+  return out;
+}

@@ -1,6 +1,7 @@
 import { CLAccount } from "../config/schema.js";
-import { normalizeEndpoint } from "../config/accounts.js";
+import { normalizeEndpoint, validateEndpoint } from "../config/accounts.js";
 import { getAccessToken } from "./cl-auth.js";
+import { RateLimiter } from "../utils/rate-limiter.js";
 
 interface JsonApiResponse {
   data: Record<string, unknown> | Record<string, unknown>[];
@@ -9,7 +10,22 @@ interface JsonApiResponse {
 }
 
 const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 1000;
+const BASE_RETRY_DELAY_MS = 1000;
+const apiLimiter = new RateLimiter(60, 60_000); // 60 requests per minute
+
+function retryDelayMs(attempt: number, retryAfterHeader?: string | null): number {
+  // Honour Retry-After header when present
+  if (retryAfterHeader) {
+    const seconds = Number(retryAfterHeader);
+    if (!Number.isNaN(seconds) && seconds > 0) {
+      return Math.min(seconds * 1000, 30_000);
+    }
+  }
+  // Exponential backoff with jitter
+  const base = BASE_RETRY_DELAY_MS * Math.pow(2, attempt);
+  const jitter = Math.random() * base * 0.5;
+  return base + jitter;
+}
 
 export async function clFetch(
   account: CLAccount,
@@ -20,8 +36,10 @@ export async function clFetch(
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
+      await apiLimiter.acquire();
       const token = await getAccessToken(account);
       const base = normalizeEndpoint(account.baseEndpoint);
+      validateEndpoint(base, account.allowCustomEndpoint);
       const url = `${base}/api/${path}`;
 
       const res = await fetch(url, {
@@ -37,7 +55,7 @@ export async function clFetch(
       if (res.status === 429 || (res.status >= 500 && attempt < MAX_RETRIES)) {
         const text = await res.text();
         lastError = new Error(`CL API ${res.status}: ${text.slice(0, 200)}`);
-        await delay(RETRY_DELAY_MS * (attempt + 1));
+        await delay(retryDelayMs(attempt, res.headers.get("Retry-After")));
         continue;
       }
 
@@ -52,7 +70,7 @@ export async function clFetch(
       if (err instanceof Error && err.message.startsWith("CL API")) throw err;
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt < MAX_RETRIES) {
-        await delay(RETRY_DELAY_MS * (attempt + 1));
+        await delay(retryDelayMs(attempt));
         continue;
       }
     }

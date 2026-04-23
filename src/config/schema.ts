@@ -54,6 +54,8 @@ export interface CLAccount {
   accessToken?: string;
   scope?: string;
   environment?: EnvironmentType;
+  /** Set to true to allow non-commercelayer.io endpoints. */
+  allowCustomEndpoint?: boolean;
 }
 
 export interface ProviderConfig {

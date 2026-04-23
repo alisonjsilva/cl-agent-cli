@@ -4,7 +4,7 @@ import { ChatEntry } from "../hooks/useAgent.js";
 import { humanizeToolName, summarizeArgs } from "../utils/formatting.js";
 import { RichText } from "./RichText.js";
 
-export const ChatMessage: React.FC<{ entry: ChatEntry }> = ({ entry }) => {
+export const ChatMessage: React.FC<{ entry: ChatEntry }> = React.memo(({ entry }) => {
   switch (entry.kind) {
     case "user":
       return (
@@ -76,4 +76,4 @@ export const ChatMessage: React.FC<{ entry: ChatEntry }> = ({ entry }) => {
         </Box>
       );
   }
-};
+});

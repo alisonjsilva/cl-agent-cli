@@ -74,27 +74,31 @@ export const InputBar: React.FC<InputBarProps> = ({
     onSubmit(text);
   };
 
-  useInput((input, key) => {
-    if (key.ctrl && input === "c") process.exit(0);
-    if (!showAutocomplete) return;
-
-    if (key.upArrow) {
-      setSelectedIndex((prev) =>
-        prev <= 0 ? suggestions.length - 1 : prev - 1,
-      );
-    }
-    if (key.downArrow) {
-      setSelectedIndex((prev) =>
-        prev >= suggestions.length - 1 ? 0 : prev + 1,
-      );
-    }
-    if (key.tab) {
-      completeSelected();
-    }
-    if (key.escape) {
-      onChange("");
-    }
+  useInput((_input, key) => {
+    if (key.ctrl && _input === "c") process.exit(0);
   });
+
+  useInput(
+    (_input, key) => {
+      if (key.upArrow) {
+        setSelectedIndex((prev) =>
+          prev <= 0 ? suggestions.length - 1 : prev - 1,
+        );
+      }
+      if (key.downArrow) {
+        setSelectedIndex((prev) =>
+          prev >= suggestions.length - 1 ? 0 : prev + 1,
+        );
+      }
+      if (key.tab) {
+        completeSelected();
+      }
+      if (key.escape) {
+        onChange("");
+      }
+    },
+    { isActive: showAutocomplete },
+  );
 
   return (
     <Box flexDirection="column" width="100%">
