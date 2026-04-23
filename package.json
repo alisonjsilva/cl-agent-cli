@@ -1,0 +1,59 @@
+{
+  "name": "@commercelayer/agent-tui",
+  "version": "0.1.0",
+  "description": "Interactive TUI agent for Commerce Layer — bring your own LLM provider.",
+  "type": "module",
+  "bin": {
+    "cl-agent": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && chmod 755 build/index.js",
+    "dev": "tsc --watch",
+    "start": "node build/index.js",
+    "compile": "bun build src/index.tsx --compile --outfile cl-agent --target node"
+  },
+  "files": [
+    "build"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "commerce-layer",
+    "tui",
+    "agent",
+    "ai",
+    "cli",
+    "vercel-ai-sdk",
+    "openrouter",
+    "anthropic",
+    "openai",
+    "google",
+    "mcp"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/commercelayer/agent-tui.git"
+  },
+  "author": "Commerce Layer",
+  "license": "MIT",
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.71",
+    "@ai-sdk/gateway": "^3.0.104",
+    "@ai-sdk/google": "^3.0.64",
+    "@ai-sdk/mcp": "^1.0.36",
+    "@ai-sdk/openai": "^3.0.53",
+    "@inkjs/ui": "^2.0.0",
+    "@openrouter/ai-sdk-provider": "^2.8.0",
+    "ai": "^6.0.168",
+    "ink": "^5.2.1",
+    "ink-text-input": "^6.0.0",
+    "react": "^18.3.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@types/react": "^18.3.11",
+    "typescript": "^5.8.3"
+  }
+}
