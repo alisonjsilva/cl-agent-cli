@@ -72,24 +72,28 @@ export const ChatView: React.FC<ChatViewProps> = ({
   );
 };
 
+function formatDuration(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSec / 60);
+  const seconds = totalSec % 60;
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
+
 const SessionStatsBar: React.FC<{ stats: SessionStats }> = ({ stats }) => {
   if (stats.totalRequests === 0) return null;
 
-  const elapsed = Math.floor((Date.now() - stats.sessionStartedAt) / 1000);
-  const minutes = Math.floor(elapsed / 60);
-  const seconds = elapsed % 60;
-  const duration = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
-
-  const formatTokens = (n: number): string => {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-    return String(n);
-  };
+  const sessionDuration = formatDuration(Date.now() - stats.sessionStartedAt);
 
   return (
     <Box paddingX={1} marginTop={1} gap={2}>
       <Text dimColor>
-        tokens: {formatTokens(stats.inputTokens)}in/{formatTokens(stats.outputTokens)}out
+        tokens: {formatTokens(stats.inputTokens)} in / {formatTokens(stats.outputTokens)} out
       </Text>
       <Text dimColor>
         requests: {stats.totalRequests}
@@ -99,7 +103,10 @@ const SessionStatsBar: React.FC<{ stats: SessionStats }> = ({ stats }) => {
           cache: {formatTokens(stats.cacheHitTokens)}
         </Text>
       )}
-      <Text dimColor>session: {duration}</Text>
+      {stats.lastRunMs > 0 && (
+        <Text dimColor>took: {formatDuration(stats.lastRunMs)}</Text>
+      )}
+      <Text dimColor>session: {sessionDuration}</Text>
     </Box>
   );
 };

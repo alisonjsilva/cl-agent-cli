@@ -25,6 +25,7 @@ export interface SessionStats {
   totalRetries: number;
   totalToolCalls: number;
   sessionStartedAt: number;
+  lastRunMs: number;
 }
 
 export type AgentEvent =
@@ -104,7 +105,7 @@ function digestError(err: unknown): ErrorDigest {
   if ((statusCode != null && statusCode >= 500) ||
       lower.includes("econnrefused") || lower.includes("enotfound") ||
       lower.includes("upstream connect error") || lower.includes("connection termination") ||
-      lower.includes("no output generated")) {
+      lower.includes("no healthy upstream") || lower.includes("no output generated")) {
     return { kind: "network", statusCode, providerMessage };
   }
 
@@ -141,8 +142,14 @@ function friendlyErrorMessage(digest: ErrorDigest): string {
         ? `Provider error${code}: ${hint}`
         : `Network error reaching the LLM provider${code}. Try again or switch models with /model.`;
     }
-    default:
-      return hint ?? "An unexpected error occurred. Try again or switch models with /model.";
+    default: {
+      const code = digest.statusCode ? ` (${digest.statusCode})` : "";
+      if (hint) return `Error${code}: ${hint}`;
+      const msg = digest.statusCode
+        ? `Provider error${code}. Try again or switch models with /model.`
+        : "An unexpected error occurred. Try again or switch models with /model.";
+      return msg;
+    }
   }
 }
 
@@ -162,6 +169,7 @@ export class Agent {
       totalRetries: 0,
       totalToolCalls: 0,
       sessionStartedAt: Date.now(),
+      lastRunMs: 0,
     };
   }
 
@@ -184,6 +192,7 @@ export class Agent {
       totalRetries: 0,
       totalToolCalls: 0,
       sessionStartedAt: Date.now(),
+      lastRunMs: 0,
     };
   }
 
@@ -240,13 +249,18 @@ export class Agent {
     this.messages.push({ role: "user", content: userInput });
     this.callSignatures.clear();
 
+    const runStart = Date.now();
     const maxSteps = this.opts.maxSteps ?? DEFAULT_MAX_STEPS;
 
     for (let step = 0; step < maxSteps; step++) {
       const needsMore = await this.executeStep();
-      if (!needsMore) return;
+      if (!needsMore) {
+        this.stats.lastRunMs = Date.now() - runStart;
+        return;
+      }
     }
 
+    this.stats.lastRunMs = Date.now() - runStart;
     this.opts.emit({ type: "error", message: "Max agent steps reached." });
     this.opts.emit({ type: "stats", stats: this.getStats() });
   }
@@ -281,11 +295,16 @@ export class Agent {
 
         let fullText = "";
         let userDeclinedInStep = false;
+        let streamError: unknown = null;
 
         for await (const chunk of result.fullStream) {
           if (chunk.type === "text-delta") {
             fullText += chunk.text;
             this.opts.emit({ type: "text_delta", text: chunk.text });
+          }
+
+          if (chunk.type === "error") {
+            streamError = (chunk as { type: "error"; error: unknown }).error;
           }
 
           if (chunk.type === "tool-call") {
@@ -338,6 +357,8 @@ export class Agent {
             });
           }
         }
+
+        if (streamError) throw streamError;
 
         clearTimeout(stepTimeout);
         this.stats.totalRequests++;
