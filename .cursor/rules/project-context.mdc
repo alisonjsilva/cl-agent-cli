@@ -1,0 +1,38 @@
+---
+description: Commerce Layer Agent TUI — project architecture and core conventions
+alwaysApply: true
+---
+
+# Commerce Layer Agent TUI
+
+Ink-based terminal UI (React rendered to terminal) for managing Commerce Layer API via natural language. Uses Vercel AI SDK (`ai` package) for streaming LLM responses and tool execution.
+
+## Build & Run
+
+```bash
+npm run build   # tsc + chmod 755 build/index.js
+npm run dev     # tsc --watch
+npm start       # node build/index.js
+```
+
+No test runner or linter configured.
+
+## Architecture
+
+`index.tsx` → `<App>` (app.tsx) → config loading → view routing → `<ChatView>` with agent loop.
+
+| Layer | Path | Responsibility |
+|-------|------|----------------|
+| Config | `src/config/` | Load/save `~/.config/cl-agent/config.json` (mode 0600), `ConfigProvider` context |
+| AI | `src/ai/` | `Agent` class wrapping `streamText()`, message history, max 10 steps/request |
+| Tools | `src/tools/` | Registry merging built-in CL tools + MCP tools, `clFetch()` with auto-retry |
+| Views | `src/views/` | ChatView, SetupWizard, SettingsView, AccountManager |
+| Components | `src/components/` | InputBar, ChatMessage, ConfirmDialog, HeaderBar, EnvBadge, RichText |
+| Hooks | `src/hooks/` | useAgent, useConfig, useRouter, useKeybindings |
+
+## Key Patterns
+
+- Chat entries: discriminated union `user | assistant | tool_call | tool_result | info | error`, capped at 120
+- Mutation flow: tool calls `requireConfirm()` → `ConfirmDialog` → user y/n → `UserDeclinedError` on decline
+- MCP tools: stdio or SSE, destructive tools auto-wrapped with confirmation via regex detection
+- Providers: Anthropic, OpenAI, Google, OpenRouter, Vercel AI Gateway

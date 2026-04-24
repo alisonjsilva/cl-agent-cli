@@ -1,0 +1,18 @@
+---
+description: Security invariants that must never be weakened
+alwaysApply: true
+---
+
+# Security Invariants
+
+These rules are non-negotiable. Do not bypass, weaken, or remove them.
+
+1. **Mutation confirmation** — Every mutation tool must call `requireConfirm()`. No exceptions, no shortcuts.
+2. **Secret redaction** — API keys, Bearer tokens, JWTs, and client secrets must be stripped from any user-visible output, error messages, and logs. See `SECRET_PATTERNS` in `src/utils/logger.ts` and `index.tsx`.
+3. **Config permissions** — `saveConfig()` writes with `0o600`. Do not change.
+4. **Endpoint validation** — `validateEndpoint()` blocks non-`*.commercelayer.io` domains unless `allowCustomEndpoint: true`. Do not relax.
+5. **MCP env isolation** — Stdio MCP subprocesses receive only `SAFE_ENV_KEYS` (PATH, HOME, XDG dirs, proxy/TLS). Never pass full `process.env`.
+6. **Rate limiting** — API calls: 60/min. Auth requests: 5/min. Do not raise without justification.
+7. **Token lifetime** — 2-hour max cap in `cl-auth.ts`. Do not increase.
+8. **System prompt injection defense** — The system prompt in `src/ai/system-prompt.ts` rejects prompt injection from API data. Do not weaken these defenses.
+9. **Security logging** — `logSecurityEvent()` always writes to disk regardless of `CL_AGENT_DEBUG`. Do not gate behind debug flag.

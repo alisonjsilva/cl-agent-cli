@@ -1,0 +1,31 @@
+---
+description: TypeScript and ES module conventions for this Ink-based TUI project
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# TypeScript Conventions
+
+- ES modules with **`.js` extensions in all imports** — required by `"module": "NodeNext"`.
+- Strict mode. Zod schemas validate tool inputs at runtime.
+- React 18 with `jsx: "react-jsx"` — no explicit React imports needed.
+
+## Naming
+
+- Components/Views: PascalCase (`ChatView`, `InputBar`)
+- Hooks: `use` prefix (`useAgent`, `useConfig`)
+- Tool names: `cl_` prefix for Commerce Layer tools
+- Config keys: camelCase (`activeAccount`, `baseEndpoint`)
+
+## Import example
+
+```typescript
+import { Config } from "./config/schema.js";    // ← .js extension required
+import { useConfig } from "./hooks/useConfig.js";
+```
+
+## Ink / UI patterns
+
+- Border colors indicate environment risk: red = production, yellow = staging, green = test.
+- Dimmed text for secondary info. Input disabled while confirmation dialog is pending.
+- All sub-views escapable with Esc.

@@ -1,0 +1,37 @@
+---
+description: Vercel AI SDK tool definition patterns and Commerce Layer API conventions
+globs: "src/tools/**"
+alwaysApply: false
+---
+
+# Tool Definitions
+
+Tools follow the Vercel AI SDK pattern:
+
+```typescript
+tools.cl_example = tool({
+  description: "MUTABLE - Description of what this tool does.",
+  inputSchema: z.object({
+    resource_type: z.string().describe("Resource type (e.g. orders)"),
+  }),
+  execute: async ({ resource_type }) => {
+    const ctx = await fetchResourceContext(account, resource_type, id);
+    await requireConfirm(confirmFn, "cl_example", { resource_type }, ctx);
+    // ... API call ...
+  },
+});
+```
+
+## Naming conventions
+
+- Read-only: `cl_list_`, `cl_get_`, `cl_search_` — no confirmation needed
+- Mutations: action verb (`cl_cancel_`, `cl_update_`, `cl_delete_`, `cl_create_`, `cl_ship_`)
+- All mutations MUST call `requireConfirm(confirmFn, toolName, args, context?)` before executing
+- Mutation detection: `MUTATION_PREFIXES` array in `cl-tools.ts` and `MUTATION_KEYWORDS` regex in `mcp-tools.ts`
+
+## API integration
+
+- `clFetch(account, path, options)` — OAuth tokens cached with 60s expiry buffer, auto-retry on 429/5xx
+- Filtering: ransack-style syntax (`_eq`, `_cont` suffixes)
+- Pagination: `page_size` 1–25, `page_number`, default sort `-created_at`
+- `formatResource()` / `formatList()` format JSON:API responses for display
