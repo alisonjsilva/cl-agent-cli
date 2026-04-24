@@ -15,6 +15,7 @@ const TRIM_TARGET = 40;
 
 const LLM_MAX_RETRIES = 2;
 const LLM_BASE_RETRY_MS = 1500;
+const LLM_REQUEST_TIMEOUT_MS = 90_000;
 
 export interface SessionStats {
   inputTokens: number;
@@ -41,29 +42,73 @@ export interface AgentOptions {
   maxSteps?: number;
 }
 
-type LLMErrorKind = "rate_limit" | "context_overflow" | "auth" | "network" | "fatal";
+type LLMErrorKind = "rate_limit" | "context_overflow" | "auth" | "network" | "timeout" | "fatal";
 
-function classifyError(err: unknown): LLMErrorKind {
-  const msg = err instanceof Error ? err.message : String(err);
-  const lower = msg.toLowerCase();
+interface ErrorDigest {
+  kind: LLMErrorKind;
+  statusCode?: number;
+  providerMessage?: string;
+}
 
-  if (lower.includes("rate limit") || lower.includes("429") || lower.includes("too many requests")) {
-    return "rate_limit";
+function unwrapError(err: unknown): { statusCode?: number; message: string; responseBody?: string } {
+  const asAny = err as Record<string, unknown> | undefined;
+  const inner = asAny?.lastError ?? err;
+  const innerAny = inner as Record<string, unknown> | undefined;
+  return {
+    statusCode: (innerAny?.statusCode as number | undefined) ?? (asAny?.statusCode as number | undefined),
+    message: inner instanceof Error ? inner.message : String(inner),
+    responseBody: (innerAny?.responseBody as string | undefined) ?? (asAny?.responseBody as string | undefined),
+  };
+}
+
+function extractProviderMessage(responseBody?: string): string | undefined {
+  if (!responseBody) return undefined;
+  try {
+    const parsed = JSON.parse(responseBody);
+    const meta = parsed?.error?.metadata;
+    if (meta?.raw) return String(meta.raw);
+    if (parsed?.error?.message) return String(parsed.error.message);
+  } catch { /* not JSON */ }
+  return undefined;
+}
+
+function digestError(err: unknown): ErrorDigest {
+  if (err instanceof Error && err.name === "AbortError") {
+    return { kind: "timeout" };
   }
-  if (lower.includes("context") || lower.includes("token") || lower.includes("maximum") ||
-      lower.includes("too long") || lower.includes("content_too_large") || lower.includes("max_tokens")) {
-    return "context_overflow";
+
+  const { statusCode, message, responseBody } = unwrapError(err);
+  const providerMessage = extractProviderMessage(responseBody);
+  const lower = (message + " " + (providerMessage ?? "")).toLowerCase();
+
+  if (statusCode === 429 || lower.includes("rate limit") || lower.includes("rate-limited") ||
+      lower.includes("too many requests")) {
+    return { kind: "rate_limit", statusCode, providerMessage };
   }
-  if (lower.includes("401") || lower.includes("403") || lower.includes("unauthorized") ||
-      lower.includes("invalid api key") || lower.includes("authentication")) {
-    return "auth";
+
+  if (lower.includes("timed out") || lower.includes("abort")) {
+    return { kind: "timeout", statusCode, providerMessage };
   }
-  if (lower.includes("econnrefused") || lower.includes("enotfound") ||
-      lower.includes("timeout") || lower.includes("network") ||
-      lower.includes("500") || lower.includes("502") || lower.includes("503") || lower.includes("504")) {
-    return "network";
+
+  if (lower.includes("context") || lower.includes("content_too_large") ||
+      lower.includes("too long") || lower.includes("max_tokens") ||
+      (lower.includes("token") && lower.includes("maximum"))) {
+    return { kind: "context_overflow", statusCode, providerMessage };
   }
-  return "fatal";
+
+  if (statusCode === 401 || statusCode === 403 ||
+      lower.includes("unauthorized") || lower.includes("invalid api key") || lower.includes("authentication")) {
+    return { kind: "auth", statusCode, providerMessage };
+  }
+
+  if ((statusCode != null && statusCode >= 500) ||
+      lower.includes("econnrefused") || lower.includes("enotfound") ||
+      lower.includes("upstream connect error") || lower.includes("connection termination") ||
+      lower.includes("no output generated")) {
+    return { kind: "network", statusCode, providerMessage };
+  }
+
+  return { kind: "fatal", statusCode, providerMessage };
 }
 
 function isRetryable(kind: LLMErrorKind): boolean {
@@ -76,18 +121,28 @@ function retryDelay(attempt: number): number {
   return base + jitter;
 }
 
-function friendlyErrorMessage(kind: LLMErrorKind, raw: string): string {
-  switch (kind) {
+function friendlyErrorMessage(digest: ErrorDigest): string {
+  const hint = digest.providerMessage?.slice(0, 150);
+
+  switch (digest.kind) {
     case "rate_limit":
-      return "Rate limited by the LLM provider. Retrying automatically...";
+      return hint
+        ? `Rate limited: ${hint}`
+        : "Rate limited by the LLM provider. Retrying automatically...";
     case "context_overflow":
       return "Conversation too long for the model's context window. History was trimmed — please retry.";
     case "auth":
       return "Authentication failed. Check your API key with /key or /provider.";
-    case "network":
-      return `Network error reaching the LLM provider. ${raw.slice(0, 120)}`;
+    case "timeout":
+      return "Request timed out. The model may not support tool calling, or the provider is unresponsive. Try a different model with /model.";
+    case "network": {
+      const code = digest.statusCode ? ` (${digest.statusCode})` : "";
+      return hint
+        ? `Provider error${code}: ${hint}`
+        : `Network error reaching the LLM provider${code}. Try again or switch models with /model.`;
+    }
     default:
-      return raw.slice(0, 300);
+      return hint ?? "An unexpected error occurred. Try again or switch models with /model.";
   }
 }
 
@@ -200,17 +255,28 @@ export class Agent {
     let lastError: unknown = null;
 
     for (let attempt = 0; attempt <= LLM_MAX_RETRIES; attempt++) {
+      const abortController = new AbortController();
+      const stepTimeout = setTimeout(
+        () => abortController.abort(new Error("LLM request timed out")),
+        LLM_REQUEST_TIMEOUT_MS,
+      );
+
+      // Declared outside try so catch can suppress dangling promise rejections
+      let result: ReturnType<typeof streamText> | undefined;
+
       try {
         if (attempt > 0) {
           this.stats.totalRetries++;
           debugLog("info", `LLM retry attempt ${attempt}/${LLM_MAX_RETRIES}`);
         }
 
-        const result = streamText({
+        result = streamText({
           model: this.opts.model,
           system: buildSystemPrompt(),
           messages: this.messages,
           tools: this.opts.tools,
+          abortSignal: abortController.signal,
+          maxRetries: 0,
         });
 
         let fullText = "";
@@ -273,6 +339,7 @@ export class Agent {
           }
         }
 
+        clearTimeout(stepTimeout);
         this.stats.totalRequests++;
 
         const usage = await result.usage;
@@ -311,13 +378,21 @@ export class Agent {
         this.opts.emit({ type: "stats", stats: this.getStats() });
         return false;
       } catch (err: unknown) {
+        clearTimeout(stepTimeout);
+        if (result) {
+          const noop = () => {};
+          Promise.resolve(result.usage).catch(noop);
+          Promise.resolve(result.finishReason).catch(noop);
+          Promise.resolve(result.response).catch(noop);
+          Promise.resolve(result.providerMetadata).catch(noop);
+        }
         lastError = err;
-        const kind = classifyError(err);
+        const digest = digestError(err);
         const raw = err instanceof Error ? err.message : String(err);
 
-        debugLog("error", `LLM error (${kind}): ${raw.slice(0, 200)}`);
+        debugLog("error", `LLM error (${digest.kind}/${digest.statusCode ?? "?"}): ${raw.slice(0, 200)}`);
 
-        if (kind === "context_overflow") {
+        if (digest.kind === "context_overflow") {
           this.aggressiveTrim();
           if (attempt < LLM_MAX_RETRIES) {
             this.opts.emit({
@@ -328,11 +403,11 @@ export class Agent {
           }
         }
 
-        if (isRetryable(kind) && attempt < LLM_MAX_RETRIES) {
+        if (isRetryable(digest.kind) && attempt < LLM_MAX_RETRIES) {
           const waitMs = retryDelay(attempt);
           this.opts.emit({
             type: "error",
-            message: `${friendlyErrorMessage(kind, raw)} (retry in ${Math.round(waitMs / 1000)}s)`,
+            message: `${friendlyErrorMessage(digest)} (retry in ${Math.round(waitMs / 1000)}s)`,
           });
           await new Promise((resolve) => setTimeout(resolve, waitMs));
           continue;
@@ -340,7 +415,7 @@ export class Agent {
 
         this.opts.emit({
           type: "error",
-          message: friendlyErrorMessage(kind, raw),
+          message: friendlyErrorMessage(digest),
         });
         this.opts.emit({ type: "stats", stats: this.getStats() });
         return false;

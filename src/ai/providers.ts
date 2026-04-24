@@ -4,7 +4,10 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGateway } from "@ai-sdk/gateway";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { Config, ProviderName } from "../config/schema.js";
+
+const NIM_BASE_URL = "https://integrate.api.nvidia.com/v1";
 
 export function createModel(
   provider: ProviderName,
@@ -38,6 +41,14 @@ export function createModel(
         ...(baseURL ? { baseURL } : {}),
       });
       return gw(modelId);
+    }
+    case "nvidia": {
+      const nim = createOpenAICompatible({
+        name: "nvidia-nim",
+        baseURL: baseURL ?? NIM_BASE_URL,
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      return nim.chatModel(modelId);
     }
   }
 }
