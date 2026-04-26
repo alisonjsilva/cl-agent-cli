@@ -10,6 +10,7 @@ interface ConfirmDialogProps {
   onDecide: (ok: boolean) => void;
 }
 
+/** Filters terminal control characters so only visible confirmation text is captured. */
 function isControlInput(input: string): boolean {
   return /[\u0000-\u001f\u007f]/.test(input);
 }
@@ -20,13 +21,13 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   context,
   onDecide,
 }) => {
-  const [typed, setTyped] = useState("");
+  const [typedConfirmation, setTypedConfirmation] = useState("");
   const isDelete = useMemo(
     () => /\b(delete|destroy|drop|remove)\b/i.test(toolName),
     [toolName],
   );
   const confirmationWord = isDelete ? "DELETE" : "YES";
-  const canConfirm = typed.trim().toUpperCase() === confirmationWord;
+  const canConfirm = typedConfirmation.trim().toUpperCase() === confirmationWord;
 
   useInput((input, key) => {
     if (key.escape) {
@@ -34,7 +35,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       return;
     }
     if (key.backspace || key.delete) {
-      setTyped((current) => current.slice(0, -1));
+      setTypedConfirmation((current) => current.slice(0, -1));
       return;
     }
     if (key.return) {
@@ -42,7 +43,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       return;
     }
     if (!input || isControlInput(input)) return;
-    setTyped((current) => current + input);
+    setTypedConfirmation((current) => current + input);
   });
 
   const maxLabel = context?.details.length
@@ -123,7 +124,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         </Text>
         <Box>
           <Text dimColor>Confirmation: </Text>
-          <Text color={canConfirm ? "green" : "white"}>{typed || "…"}</Text>
+          <Text color={canConfirm ? "green" : "white"}>{typedConfirmation || "…"}</Text>
           <Text dimColor>{canConfirm ? "  ✓ ready" : `  (type ${confirmationWord})`}</Text>
         </Box>
       </Box>
