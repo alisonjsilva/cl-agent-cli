@@ -6,6 +6,8 @@ import { clFetch, formatResource, formatList, buildQuery } from "./cl-api.js";
 export interface ConfirmContext {
   summary: string;
   details: Array<{ label: string; value: string }>;
+  command?: string;
+  warning?: string;
 }
 
 export type MutationConfirmFn = (
@@ -46,6 +48,7 @@ async function fetchOrderContext(
     return {
       summary: `Order #${a?.number ?? orderId}`,
       details: [
+        { label: "ID", value: orderId },
         { label: "Number", value: `#${a?.number ?? "—"}` },
         { label: "Status", value: String(a?.status ?? "—") },
         { label: "Payment", value: String(a?.payment_status ?? "—") },
@@ -58,6 +61,29 @@ async function fetchOrderContext(
   } catch {
     return undefined;
   }
+}
+
+function formatCommand(
+  method: "PATCH" | "DELETE",
+  path: string,
+  body?: Record<string, unknown>,
+): string {
+  const requestLine = `${method} /${path}`;
+  if (!body) return requestLine;
+  return `${requestLine}\n${JSON.stringify(body, null, 2)}`;
+}
+
+function withCommand(
+  context: ConfirmContext | undefined,
+  command: string,
+  warning?: string,
+): ConfirmContext {
+  return {
+    summary: context?.summary ?? "Selected resource",
+    details: context?.details ?? [],
+    command,
+    warning,
+  };
 }
 
 async function fetchResourceContext(
@@ -186,11 +212,15 @@ export function createCLTools(
       order_id: z.string().describe("Order ID to cancel"),
     }),
     execute: async ({ order_id }) => {
-      const ctx = await fetchOrderContext(account, order_id);
+      const body = { data: { type: "orders", id: order_id, attributes: { _cancel: true } } };
+      const ctx = withCommand(
+        await fetchOrderContext(account, order_id),
+        formatCommand("PATCH", `orders/${order_id}`, body),
+      );
       await requireConfirm(confirmFn, "cl_cancel_order", { order_id }, ctx);
       const res = await clFetch(account, `orders/${order_id}`, {
         method: "PATCH",
-        body: { data: { type: "orders", id: order_id, attributes: { _cancel: true } } },
+        body,
       });
       const attrs = (res.data as Record<string, unknown>).attributes as Record<string, unknown>;
       return `Order ${order_id} cancelled. Status: ${attrs?.status}`;
@@ -203,11 +233,15 @@ export function createCLTools(
       order_id: z.string().describe("Order ID to approve"),
     }),
     execute: async ({ order_id }) => {
-      const ctx = await fetchOrderContext(account, order_id);
+      const body = { data: { type: "orders", id: order_id, attributes: { _approve: true } } };
+      const ctx = withCommand(
+        await fetchOrderContext(account, order_id),
+        formatCommand("PATCH", `orders/${order_id}`, body),
+      );
       await requireConfirm(confirmFn, "cl_approve_order", { order_id }, ctx);
       const res = await clFetch(account, `orders/${order_id}`, {
         method: "PATCH",
-        body: { data: { type: "orders", id: order_id, attributes: { _approve: true } } },
+        body,
       });
       const attrs = (res.data as Record<string, unknown>).attributes as Record<string, unknown>;
       return `Order ${order_id} approved. Status: ${attrs?.status}`;
@@ -220,11 +254,15 @@ export function createCLTools(
       order_id: z.string().describe("Order ID to place"),
     }),
     execute: async ({ order_id }) => {
-      const ctx = await fetchOrderContext(account, order_id);
+      const body = { data: { type: "orders", id: order_id, attributes: { _place: true } } };
+      const ctx = withCommand(
+        await fetchOrderContext(account, order_id),
+        formatCommand("PATCH", `orders/${order_id}`, body),
+      );
       await requireConfirm(confirmFn, "cl_place_order", { order_id }, ctx);
       const res = await clFetch(account, `orders/${order_id}`, {
         method: "PATCH",
-        body: { data: { type: "orders", id: order_id, attributes: { _place: true } } },
+        body,
       });
       const attrs = (res.data as Record<string, unknown>).attributes as Record<string, unknown>;
       return `Order ${order_id} placed. Status: ${attrs?.status}`;
@@ -237,11 +275,15 @@ export function createCLTools(
       order_id: z.string().describe("Order ID to archive"),
     }),
     execute: async ({ order_id }) => {
-      const ctx = await fetchOrderContext(account, order_id);
+      const body = { data: { type: "orders", id: order_id, attributes: { _archive: true } } };
+      const ctx = withCommand(
+        await fetchOrderContext(account, order_id),
+        formatCommand("PATCH", `orders/${order_id}`, body),
+      );
       await requireConfirm(confirmFn, "cl_archive_order", { order_id }, ctx);
       await clFetch(account, `orders/${order_id}`, {
         method: "PATCH",
-        body: { data: { type: "orders", id: order_id, attributes: { _archive: true } } },
+        body,
       });
       return `Order ${order_id} archived.`;
     },
@@ -253,11 +295,15 @@ export function createCLTools(
       authorization_id: z.string().describe("Authorization ID to capture"),
     }),
     execute: async ({ authorization_id }) => {
-      const ctx = await fetchResourceContext(account, "authorizations", authorization_id);
+      const body = { data: { type: "authorizations", id: authorization_id, attributes: { _capture: true } } };
+      const ctx = withCommand(
+        await fetchResourceContext(account, "authorizations", authorization_id),
+        formatCommand("PATCH", `authorizations/${authorization_id}`, body),
+      );
       await requireConfirm(confirmFn, "cl_capture_payment", { authorization_id }, ctx);
       await clFetch(account, `authorizations/${authorization_id}`, {
         method: "PATCH",
-        body: { data: { type: "authorizations", id: authorization_id, attributes: { _capture: true } } },
+        body,
       });
       return `Authorization ${authorization_id} captured.`;
     },
@@ -269,11 +315,15 @@ export function createCLTools(
       capture_id: z.string().describe("Capture ID to refund"),
     }),
     execute: async ({ capture_id }) => {
-      const ctx = await fetchResourceContext(account, "captures", capture_id);
+      const body = { data: { type: "captures", id: capture_id, attributes: { _refund: true } } };
+      const ctx = withCommand(
+        await fetchResourceContext(account, "captures", capture_id),
+        formatCommand("PATCH", `captures/${capture_id}`, body),
+      );
       await requireConfirm(confirmFn, "cl_refund_capture", { capture_id }, ctx);
       await clFetch(account, `captures/${capture_id}`, {
         method: "PATCH",
-        body: { data: { type: "captures", id: capture_id, attributes: { _refund: true } } },
+        body,
       });
       return `Capture ${capture_id} refunded.`;
     },
@@ -287,11 +337,15 @@ export function createCLTools(
       attributes: z.record(z.unknown()).describe("Attributes to update"),
     }),
     execute: async ({ resource_type, id, attributes }) => {
-      const ctx = await fetchResourceContext(account, resource_type, id);
+      const body = { data: { type: resource_type, id, attributes } };
+      const ctx = withCommand(
+        await fetchResourceContext(account, resource_type, id),
+        formatCommand("PATCH", `${resource_type}/${id}`, body),
+      );
       await requireConfirm(confirmFn, "cl_update_resource", { resource_type, id, attributes }, ctx);
       const res = await clFetch(account, `${resource_type}/${id}`, {
         method: "PATCH",
-        body: { data: { type: resource_type, id, attributes } },
+        body,
       });
       return formatResource(res.data as Record<string, unknown>);
     },
@@ -304,7 +358,11 @@ export function createCLTools(
       id: z.string().describe("Resource ID to delete"),
     }),
     execute: async ({ resource_type, id }) => {
-      const ctx = await fetchResourceContext(account, resource_type, id);
+      const ctx = withCommand(
+        await fetchResourceContext(account, resource_type, id),
+        formatCommand("DELETE", `${resource_type}/${id}`),
+        "This deletion is irreversible and permanently removes the resource.",
+      );
       await requireConfirm(confirmFn, "cl_delete_resource", { resource_type, id }, ctx);
       await clFetch(account, `${resource_type}/${id}`, { method: "DELETE" });
       return `Deleted ${resource_type}/${id}`;

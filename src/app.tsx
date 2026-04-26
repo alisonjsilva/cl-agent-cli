@@ -71,7 +71,7 @@ const AppInner: React.FC = () => {
     try {
       const reg = await buildToolRegistry(
         nextCfg,
-        (name, args) => confirmRef.current(name, args),
+        (name, args, context) => confirmRef.current(name, args, context),
       );
       setTools(reg.tools);
       setToolCount(reg.toolCount);

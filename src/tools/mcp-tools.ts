@@ -2,7 +2,7 @@ import type { ToolSet } from "ai";
 import { createMCPClient, type MCPClient } from "@ai-sdk/mcp";
 import { MCPServerConfig } from "../config/schema.js";
 import { debugLog, logSecurityEvent } from "../utils/logger.js";
-import type { MutationConfirmFn } from "./cl-tools.js";
+import type { ConfirmContext, MutationConfirmFn } from "./cl-tools.js";
 import { UserDeclinedError } from "./cl-tools.js";
 
 /** Environment variables safe to inherit in stdio MCP subprocesses. */
@@ -76,7 +76,13 @@ function wrapMCPTools(
         ...originalTool,
         execute: async (...execArgs: Parameters<typeof origExecute>) => {
           const args = (execArgs[0] ?? {}) as Record<string, unknown>;
-          const ok = await confirmFn(name, args);
+          const context: ConfirmContext = {
+            summary: `MCP mutation: ${name}`,
+            details: desc ? [{ label: "Description", value: desc }] : [],
+            command: formatMCPCommand(name, args),
+            warning: "This MCP tool may modify external systems or data.",
+          };
+          const ok = await confirmFn(name, args, context);
           if (!ok) throw new UserDeclinedError();
           return origExecute(...execArgs);
         },
@@ -87,6 +93,13 @@ function wrapMCPTools(
   }
 
   return wrapped;
+}
+
+function formatMCPCommand(name: string, args: Record<string, unknown>): string {
+  const command = `tool ${name}`;
+  return Object.keys(args).length > 0
+    ? `${command}\n${JSON.stringify(args, null, 2)}`
+    : command;
 }
 
 async function connectMCPServer(

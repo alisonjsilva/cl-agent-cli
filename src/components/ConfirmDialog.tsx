@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { humanizeToolName } from "../utils/formatting.js";
 import type { ConfirmContext } from "../tools/cl-tools.js";
@@ -16,12 +16,32 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   context,
   onDecide,
 }) => {
+  const [typed, setTyped] = useState("");
+  const isDelete = useMemo(
+    () => /\b(delete|destroy|drop|remove)\b/i.test(toolName),
+    [toolName],
+  );
+  const confirmationWord = isDelete ? "DELETE" : "YES";
+  const canConfirm = typed.trim().toUpperCase() === confirmationWord;
+
   useInput((input, key) => {
-    if (key.return || input === "y" || input === "Y") onDecide(true);
-    else if (key.escape || input === "n" || input === "N") onDecide(false);
+    if (key.escape) {
+      onDecide(false);
+      return;
+    }
+    if (key.backspace || key.delete) {
+      setTyped((current) => current.slice(0, -1));
+      return;
+    }
+    if (key.return) {
+      if (canConfirm) onDecide(true);
+      return;
+    }
+    if (!input || /[\u0000-\u001f\u007f]/.test(input)) return;
+    setTyped((current) => current + input);
   });
 
-  const maxLabel = context
+  const maxLabel = context?.details.length
     ? Math.max(...context.details.map((d) => d.label.length))
     : 0;
 
@@ -44,9 +64,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       width="100%"
     >
       <Box>
-        <Text color="yellow" bold>Are you sure you want to </Text>
+        <Text color="yellow" bold>Confirm </Text>
         <Text color="white" bold>{humanizeToolName(toolName)}</Text>
-        <Text color="yellow" bold>?</Text>
       </Box>
 
       {context && (
@@ -61,6 +80,15 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               </Text>
             </Box>
           ))}
+        </Box>
+      )}
+
+      {context?.command && (
+        <Box marginTop={1} flexDirection="column">
+          <Text color="yellow" bold>Command:</Text>
+          <Box paddingLeft={1}>
+            <Text color="magenta">{context.command}</Text>
+          </Box>
         </Box>
       )}
 
@@ -81,18 +109,24 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
       <Box marginTop={1}>
         <Text color="red" dimColor>
-          This operation will modify data in Commerce Layer.
+          {context?.warning ?? "This operation will modify data in Commerce Layer."}
         </Text>
       </Box>
 
-      <Box marginTop={1} justifyContent="center" gap={4}>
+      <Box marginTop={1} flexDirection="column">
+        <Text>
+          Type <Text color="green" bold>{confirmationWord}</Text> and press <Text color="green" bold>Enter</Text> to continue.
+        </Text>
         <Box>
-          <Text color="green" bold>[y/Enter]</Text>
-          <Text bold> Yes</Text>
+          <Text dimColor>Confirmation: </Text>
+          <Text color={canConfirm ? "green" : "white"}>{typed || "…"}</Text>
         </Box>
+      </Box>
+
+      <Box marginTop={1} justifyContent="center">
         <Box>
-          <Text color="red" bold>[n/Esc]</Text>
-          <Text bold> No</Text>
+          <Text color="red" bold>[Esc]</Text>
+          <Text bold> Cancel</Text>
         </Box>
       </Box>
     </Box>
