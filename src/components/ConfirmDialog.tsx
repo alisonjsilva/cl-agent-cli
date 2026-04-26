@@ -10,6 +10,10 @@ interface ConfirmDialogProps {
   onDecide: (ok: boolean) => void;
 }
 
+function isControlInput(input: string): boolean {
+  return /[\u0000-\u001f\u007f]/.test(input);
+}
+
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   toolName,
   args,
@@ -37,7 +41,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       if (canConfirm) onDecide(true);
       return;
     }
-    if (!input || /[\u0000-\u001f\u007f]/.test(input)) return;
+    if (!input || isControlInput(input)) return;
     setTyped((current) => current + input);
   });
 
@@ -120,6 +124,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         <Box>
           <Text dimColor>Confirmation: </Text>
           <Text color={canConfirm ? "green" : "white"}>{typed || "…"}</Text>
+          <Text dimColor>{canConfirm ? "  ✓ ready" : `  (type ${confirmationWord})`}</Text>
         </Box>
       </Box>
 
