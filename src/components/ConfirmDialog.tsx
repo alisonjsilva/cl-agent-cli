@@ -11,7 +11,7 @@ interface ConfirmDialogProps {
 }
 
 /** Filters terminal control characters so only visible confirmation text is captured. */
-function isControlInput(input: string): boolean {
+function containsControlCharacter(input: string): boolean {
   return /[\u0000-\u001f\u007f]/.test(input);
 }
 
@@ -42,7 +42,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       if (canConfirm) onDecide(true);
       return;
     }
-    if (!input || isControlInput(input)) return;
+    if (!input || containsControlCharacter(input)) return;
     setTypedConfirmation((current) => current + input);
   });
 
@@ -124,7 +124,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         </Text>
         <Box>
           <Text dimColor>Confirmation: </Text>
-          <Text color={canConfirm ? "green" : "white"}>{typedConfirmation || "…"}</Text>
+          <Text color={canConfirm ? "green" : "white"}>{typedConfirmation || "(empty)"}</Text>
           <Text dimColor>{canConfirm ? "  ✓ ready" : `  (type ${confirmationWord})`}</Text>
         </Box>
       </Box>
