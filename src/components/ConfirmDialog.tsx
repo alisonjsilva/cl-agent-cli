@@ -29,18 +29,29 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   const confirmationWord = isDelete ? "DELETE" : "YES";
   const canConfirm = typedConfirmation.trim().toUpperCase() === confirmationWord;
   const details = context?.details ?? [];
-  const safeToolName = sanitizeTerminalText(humanizeToolName(toolName));
-  const safeSummary = context ? sanitizeTerminalText(context.summary) : "";
-  const safeDetails = details.map((detail) => ({
-    label: sanitizeTerminalText(detail.label),
-    value: sanitizeTerminalText(detail.value),
-  }));
-  const safeCommand = context?.command
-    ? sanitizeTerminalText(context.command)
-    : undefined;
-  const safeWarning = context?.warning
-    ? sanitizeTerminalText(context.warning)
-    : undefined;
+  const safeToolName = useMemo(
+    () => sanitizeTerminalText(humanizeToolName(toolName)),
+    [toolName],
+  );
+  const safeSummary = useMemo(
+    () => (context ? sanitizeTerminalText(context.summary) : ""),
+    [context],
+  );
+  const safeDetails = useMemo(
+    () => details.map((detail) => ({
+      label: sanitizeTerminalText(detail.label),
+      value: sanitizeTerminalText(detail.value),
+    })),
+    [details],
+  );
+  const safeCommand = useMemo(
+    () => (context?.command ? sanitizeTerminalText(context.command) : undefined),
+    [context?.command],
+  );
+  const safeWarning = useMemo(
+    () => (context?.warning ? sanitizeTerminalText(context.warning) : undefined),
+    [context?.warning],
+  );
 
   useInput((input, key) => {
     if (key.escape) {
@@ -63,15 +74,18 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     ? Math.max(...safeDetails.map((d) => d.label.length))
     : 0;
 
-  const argLines = Object.entries(args)
-    .filter(([, v]) => v !== undefined && v !== null)
-    .filter(([k]) => !context || !["order_id", "authorization_id", "capture_id", "id"].includes(k))
-    .map(([k, v]) => {
-      const label = sanitizeTerminalText(k.replace(/_/g, " "));
-      const rawDisplay = typeof v === "object" ? JSON.stringify(v) : String(v);
-      const display = sanitizeTerminalText(rawDisplay);
-      return { label, display };
-    });
+  const argLines = useMemo(
+    () => Object.entries(args)
+      .filter(([, v]) => v !== undefined && v !== null)
+      .filter(([k]) => !context || !["order_id", "authorization_id", "capture_id", "id"].includes(k))
+      .map(([k, v]) => {
+        const label = sanitizeTerminalText(k.replace(/_/g, " "));
+        const rawDisplay = typeof v === "object" ? JSON.stringify(v) : String(v);
+        const display = sanitizeTerminalText(rawDisplay);
+        return { label, display };
+      }),
+    [args, context],
+  );
 
   return (
     <Box

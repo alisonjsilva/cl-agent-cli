@@ -1,8 +1,10 @@
 const MAX_ARG_SUMMARY = 96;
 const MAX_LINES = 24;
 const MAX_CHARS = 1500;
+// Matches ANSI CSI (`ESC [`), OSC (`ESC ]`) and single-byte escape sequences.
 const ANSI_ESCAPE_RE =
   /\u001B(?:\[[0-?]*[ -/]*[@-~]|\][\s\S]*?(?:\u0007|\u001B\\)|[@-Z\\-_])/g;
+// Blocks control characters while intentionally preserving TAB and LF for readable layout.
 const DISALLOWED_TERMINAL_CONTROL_RE = /[\u0000-\u0008\u000B-\u001F\u007F]/g;
 
 export function getErrorMessage(error: unknown): string {
