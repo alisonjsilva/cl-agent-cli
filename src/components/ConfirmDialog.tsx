@@ -70,9 +70,10 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     setTypedConfirmation((current) => current + input);
   });
 
-  const maxLabel = safeDetails.length
-    ? Math.max(...safeDetails.map((d) => d.label.length))
-    : 0;
+  const maxLabel = useMemo(
+    () => (safeDetails.length ? Math.max(...safeDetails.map((d) => d.label.length)) : 0),
+    [safeDetails],
+  );
 
   const argLines = useMemo(
     () => Object.entries(args)

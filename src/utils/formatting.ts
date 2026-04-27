@@ -58,6 +58,7 @@ export function redactSecrets(value: string): string {
   return value.slice(0, 4) + "…" + value.slice(-4);
 }
 
+/** Removes ANSI escape sequences and unsafe control bytes while preserving tabs/newlines. */
 export function sanitizeTerminalText(text: string): string {
   return text
     .replace(/\r\n/g, "\n")
