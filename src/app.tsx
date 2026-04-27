@@ -18,7 +18,7 @@ import { SetupWizard } from "./views/SetupWizard.js";
 import { SettingsView } from "./views/SettingsView.js";
 import { AccountManager } from "./views/AccountManager.js";
 import { useKeybindings } from "./hooks/useKeybindings.js";
-import { getErrorMessage } from "./utils/formatting.js";
+import { getErrorMessage, isDestructiveToolName } from "./utils/formatting.js";
 import { logError } from "./utils/logger.js";
 
 export const App: React.FC = () => {
@@ -92,7 +92,7 @@ const AppInner: React.FC = () => {
   const [input, setInput] = useState("");
   const env = account ? detectEnvironment(account) : "unknown";
   const pendingConfirmationWord = pendingConfirm
-    ? /\b(delete|destroy|drop|remove)\b/i.test(pendingConfirm.toolName)
+    ? isDestructiveToolName(pendingConfirm.toolName)
       ? "DELETE"
       : "YES"
     : null;

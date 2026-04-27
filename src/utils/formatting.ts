@@ -16,6 +16,10 @@ export function humanizeToolName(name: string): string {
   return plain.length > 0 ? plain : name;
 }
 
+export function isDestructiveToolName(name: string): boolean {
+  return /\b(delete|destroy|drop|remove)\b/i.test(name);
+}
+
 export function summarizeArgs(args: Record<string, unknown>): string {
   const parts = Object.entries(args)
     .filter(([, v]) => v !== undefined)

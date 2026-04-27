@@ -1,6 +1,10 @@
 import React, { useMemo, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { humanizeToolName, sanitizeTerminalText } from "../utils/formatting.js";
+import {
+  humanizeToolName,
+  isDestructiveToolName,
+  sanitizeTerminalText,
+} from "../utils/formatting.js";
 import type { ConfirmContext } from "../tools/cl-tools.js";
 
 interface ConfirmDialogProps {
@@ -25,7 +29,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 }) => {
   const [typedConfirmation, setTypedConfirmation] = useState("");
   const isDelete = useMemo(
-    () => /\b(delete|destroy|drop|remove)\b/i.test(toolName),
+    () => isDestructiveToolName(toolName),
     [toolName],
   );
   const confirmationWord = isDelete ? "DELETE" : "YES";
