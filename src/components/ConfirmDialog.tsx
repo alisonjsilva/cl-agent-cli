@@ -46,8 +46,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     setTypedConfirmation((current) => current + input);
   });
 
-  const maxLabel = context?.details.length
-    ? Math.max(...context.details.map((d) => d.label.length))
+  const details = context?.details ?? [];
+  const maxLabel = details.length
+    ? Math.max(...details.map((d) => d.label.length))
     : 0;
 
   const argLines = Object.entries(args)
