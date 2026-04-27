@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { humanizeToolName } from "../utils/formatting.js";
+import { humanizeToolName, sanitizeTerminalText } from "../utils/formatting.js";
 import type { ConfirmContext } from "../tools/cl-tools.js";
 
 interface ConfirmDialogProps {
@@ -28,6 +28,19 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   );
   const confirmationWord = isDelete ? "DELETE" : "YES";
   const canConfirm = typedConfirmation.trim().toUpperCase() === confirmationWord;
+  const details = context?.details ?? [];
+  const safeToolName = sanitizeTerminalText(humanizeToolName(toolName));
+  const safeSummary = context ? sanitizeTerminalText(context.summary) : "";
+  const safeDetails = details.map((detail) => ({
+    label: sanitizeTerminalText(detail.label),
+    value: sanitizeTerminalText(detail.value),
+  }));
+  const safeCommand = context?.command
+    ? sanitizeTerminalText(context.command)
+    : undefined;
+  const safeWarning = context?.warning
+    ? sanitizeTerminalText(context.warning)
+    : undefined;
 
   useInput((input, key) => {
     if (key.escape) {
@@ -46,17 +59,17 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     setTypedConfirmation((current) => current + input);
   });
 
-  const details = context?.details ?? [];
-  const maxLabel = details.length
-    ? Math.max(...details.map((d) => d.label.length))
+  const maxLabel = safeDetails.length
+    ? Math.max(...safeDetails.map((d) => d.label.length))
     : 0;
 
   const argLines = Object.entries(args)
     .filter(([, v]) => v !== undefined && v !== null)
     .filter(([k]) => !context || !["order_id", "authorization_id", "capture_id", "id"].includes(k))
     .map(([k, v]) => {
-      const label = k.replace(/_/g, " ");
-      const display = typeof v === "object" ? JSON.stringify(v) : String(v);
+      const label = sanitizeTerminalText(k.replace(/_/g, " "));
+      const rawDisplay = typeof v === "object" ? JSON.stringify(v) : String(v);
+      const display = sanitizeTerminalText(rawDisplay);
       return { label, display };
     });
 
@@ -71,14 +84,14 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     >
       <Box>
         <Text color="yellow" bold>Confirm </Text>
-        <Text color="white" bold>{humanizeToolName(toolName)}</Text>
+        <Text color="white" bold>{safeToolName}</Text>
       </Box>
 
       {context && (
         <Box marginTop={1} flexDirection="column">
-          <Text color="white" bold>{context.summary}</Text>
+          <Text color="white" bold>{safeSummary}</Text>
           <Text dimColor>{"─".repeat(36)}</Text>
-          {context.details.map((d, i) => (
+          {safeDetails.map((d, i) => (
             <Box key={i} paddingLeft={1}>
               <Text>
                 <Text dimColor>{d.label.padEnd(maxLabel + 1)}</Text>{" "}
@@ -89,11 +102,11 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         </Box>
       )}
 
-      {context?.command && (
+      {safeCommand && (
         <Box marginTop={1} flexDirection="column">
           <Text color="yellow" bold>Command:</Text>
           <Box paddingLeft={1}>
-            <Text color="magenta">{context.command}</Text>
+            <Text color="magenta">{safeCommand}</Text>
           </Box>
         </Box>
       )}
@@ -115,7 +128,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
       <Box marginTop={1}>
         <Text color="red" dimColor>
-          {context?.warning ?? "This operation will modify data in Commerce Layer."}
+          {safeWarning ?? "This operation will modify data in Commerce Layer."}
         </Text>
       </Box>
 
