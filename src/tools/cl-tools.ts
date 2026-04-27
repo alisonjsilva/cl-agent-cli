@@ -122,85 +122,91 @@ export function createCLTools(
 
   tools.cl_list_resources = tool({
     description:
-      "List Commerce Layer resources. Common types: orders, customers, skus, shipments, returns, prices, stock_items, captures, refunds, markets, promotions, gift_cards, imports, exports, line_items, addresses, payment_methods, shipping_methods.",
+      "List Commerce Layer resources. Common types: orders, customers, skus, shipments, returns, prices, stock_items, captures, refunds, markets, promotions, gift_cards, imports, exports, line_items, addresses, payment_methods, shipping_methods. Use 'include' to sideload associations in one call (e.g. 'line_items,shipments' for orders).",
     inputSchema: z.object({
       resource_type: z.string().describe("Resource type (e.g. orders, customers, skus)"),
       page_size: z.number().min(1).max(25).default(10).describe("Results per page (max 25)"),
       page_number: z.number().min(1).default(1).describe("Page number"),
       sort: z.string().optional().describe("Sort field, e.g. -created_at for newest first"),
       filters: z.record(z.string()).optional().describe("Ransack filter params, e.g. { status_eq: 'placed' }"),
+      include: z.string().optional().describe("Comma-separated relationship paths to sideload (e.g. 'line_items,shipments,payment_source'). Use dot notation for nested: 'shipments.shipping_method'"),
     }),
-    execute: async ({ resource_type, page_size, page_number, sort, filters }) => {
-      const qs = buildQuery({ pageSize: page_size, pageNumber: page_number, sort, filters });
+    execute: async ({ resource_type, page_size, page_number, sort, filters, include }) => {
+      const qs = buildQuery({ pageSize: page_size, pageNumber: page_number, sort, filters, include });
       const res = await clFetch(account, `${resource_type}${qs}`);
       const data = Array.isArray(res.data) ? res.data : [res.data];
-      return formatList(data, res.meta);
+      return formatList(data, res.meta, res.included);
     },
   });
 
   tools.cl_get_resource = tool({
-    description: "Get a single Commerce Layer resource by type and ID.",
+    description: "Get a single Commerce Layer resource by type and ID. Use 'include' to sideload associations (e.g. 'line_items,shipments,billing_address,shipping_address' for an order).",
     inputSchema: z.object({
       resource_type: z.string().describe("Resource type (e.g. orders, customers, skus)"),
       id: z.string().describe("Resource ID"),
+      include: z.string().optional().describe("Comma-separated relationship paths to sideload (e.g. 'line_items,shipments,payment_source'). Use dot notation for nested: 'shipments.shipping_method'"),
     }),
-    execute: async ({ resource_type, id }) => {
-      const res = await clFetch(account, `${resource_type}/${id}`);
-      return formatResource(res.data as Record<string, unknown>);
+    execute: async ({ resource_type, id, include }) => {
+      const qs = include ? `?include=${include}` : "";
+      const res = await clFetch(account, `${resource_type}/${id}${qs}`);
+      return formatResource(res.data as Record<string, unknown>, res.included);
     },
   });
 
   tools.cl_search_orders = tool({
-    description: "Search orders by number, status, payment_status, or customer email. Results are sorted newest-first.",
+    description: "Search orders by number, status, payment_status, or customer email. Results are sorted newest-first. Use 'include' to sideload associations in one call.",
     inputSchema: z.object({
       number: z.string().optional().describe("Order number (exact match)"),
       status: z.string().optional().describe("Order status: draft, pending, placed, approved, cancelled"),
       payment_status: z.string().optional().describe("Payment status: unpaid, authorized, partially_authorized, paid, partially_paid, voided, partially_voided, refunded, partially_refunded, free"),
       email: z.string().optional().describe("Customer email (contains match)"),
       page_size: z.number().min(1).max(25).default(10),
+      include: z.string().optional().describe("Comma-separated relationship paths to sideload (e.g. 'line_items,shipments,payment_source,billing_address,shipping_address')"),
     }),
-    execute: async ({ number, status, payment_status, email, page_size }) => {
+    execute: async ({ number, status, payment_status, email, page_size, include }) => {
       const filters: Record<string, string> = {};
       if (number) filters.number_eq = number;
       if (status) filters.status_eq = status;
       if (payment_status) filters.payment_status_eq = payment_status;
       if (email) filters.customer_email_cont = email;
-      const qs = buildQuery({ pageSize: page_size, sort: "-created_at", filters });
+      const qs = buildQuery({ pageSize: page_size, sort: "-created_at", filters, include });
       const res = await clFetch(account, `orders${qs}`);
       const data = Array.isArray(res.data) ? res.data : [res.data];
-      return formatList(data, res.meta);
+      return formatList(data, res.meta, res.included);
     },
   });
 
   tools.cl_search_customers = tool({
-    description: "Search customers by email.",
+    description: "Search customers by email. Use 'include' to sideload orders, addresses, etc.",
     inputSchema: z.object({
       email: z.string().describe("Customer email (exact or partial match)"),
       page_size: z.number().min(1).max(25).default(10),
+      include: z.string().optional().describe("Comma-separated relationship paths to sideload (e.g. 'orders,customer_addresses')"),
     }),
-    execute: async ({ email, page_size }) => {
-      const qs = buildQuery({ pageSize: page_size, filters: { email_cont: email } });
+    execute: async ({ email, page_size, include }) => {
+      const qs = buildQuery({ pageSize: page_size, filters: { email_cont: email }, include });
       const res = await clFetch(account, `customers${qs}`);
       const data = Array.isArray(res.data) ? res.data : [res.data];
-      return formatList(data, res.meta);
+      return formatList(data, res.meta, res.included);
     },
   });
 
   tools.cl_search_skus = tool({
-    description: "Search SKUs by code or name.",
+    description: "Search SKUs by code or name. Use 'include' to sideload prices, stock_items, etc.",
     inputSchema: z.object({
       code: z.string().optional().describe("SKU code (contains match)"),
       name: z.string().optional().describe("SKU name (contains match)"),
       page_size: z.number().min(1).max(25).default(10),
+      include: z.string().optional().describe("Comma-separated relationship paths to sideload (e.g. 'prices,stock_items')"),
     }),
-    execute: async ({ code, name, page_size }) => {
+    execute: async ({ code, name, page_size, include }) => {
       const filters: Record<string, string> = {};
       if (code) filters.code_cont = code;
       if (name) filters.name_cont = name;
-      const qs = buildQuery({ pageSize: page_size, filters });
+      const qs = buildQuery({ pageSize: page_size, filters, include });
       const res = await clFetch(account, `skus${qs}`);
       const data = Array.isArray(res.data) ? res.data : [res.data];
-      return formatList(data, res.meta);
+      return formatList(data, res.meta, res.included);
     },
   });
 

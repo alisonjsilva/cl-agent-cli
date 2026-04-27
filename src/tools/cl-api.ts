@@ -83,7 +83,7 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function formatResource(data: Record<string, unknown>): string {
+export function formatResource(data: Record<string, unknown>, included?: Record<string, unknown>[]): string {
   const attrs = (data.attributes ?? {}) as Record<string, unknown>;
   const id = data.id ?? "";
   const type = data.type ?? "";
@@ -95,15 +95,42 @@ export function formatResource(data: Record<string, unknown>): string {
     lines.push(`  ${k}: ${v}`);
   }
 
+  // Append included associations inline
+  if (included && included.length > 0) {
+    const rels = (data.relationships ?? {}) as Record<string, { data?: unknown }>;
+    for (const [relName, rel] of Object.entries(rels)) {
+      const relData = rel?.data;
+      if (!relData) continue;
+      const refs = Array.isArray(relData) ? relData : [relData];
+      const resolved = refs
+        .map((ref: Record<string, unknown>) =>
+          included.find((inc) => inc.type === ref.type && inc.id === ref.id),
+        )
+        .filter(Boolean) as Record<string, unknown>[];
+      if (resolved.length === 0) continue;
+      lines.push(`  ── ${relName} (${resolved.length}) ──`);
+      for (const inc of resolved) {
+        const incAttrs = (inc.attributes ?? {}) as Record<string, unknown>;
+        const summary = Object.entries(incAttrs)
+          .filter(([, v]) => v != null && typeof v !== "object")
+          .slice(0, 8)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(", ");
+        lines.push(`    ${inc.type} (${inc.id}): ${summary}`);
+      }
+    }
+  }
+
   return lines.join("\n");
 }
 
 export function formatList(
   data: Record<string, unknown>[],
   meta?: { record_count?: number },
+  included?: Record<string, unknown>[],
 ): string {
   if (data.length === 0) return "No results found.";
-  const parts = data.map(formatResource);
+  const parts = data.map((d) => formatResource(d, included));
   const header = meta?.record_count != null
     ? `Found ${meta.record_count} total (showing ${data.length}):`
     : `Showing ${data.length} results:`;
@@ -115,11 +142,13 @@ export function buildQuery(params: {
   pageNumber?: number;
   sort?: string;
   filters?: Record<string, string>;
+  include?: string;
 }): string {
   const qs: string[] = [];
   if (params.pageSize) qs.push(`page[size]=${params.pageSize}`);
   if (params.pageNumber) qs.push(`page[number]=${params.pageNumber}`);
   if (params.sort) qs.push(`sort=${params.sort}`);
+  if (params.include) qs.push(`include=${params.include}`);
   if (params.filters) {
     for (const [k, v] of Object.entries(params.filters)) {
       qs.push(`filter[q][${k}]=${encodeURIComponent(v)}`);

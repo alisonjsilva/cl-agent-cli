@@ -5,6 +5,7 @@ import {
   type ToolSet,
 } from "ai";
 import { buildSystemPrompt } from "./system-prompt.js";
+import { buildSkillContext } from "./prompt-skills.js";
 import { debugLog } from "../utils/logger.js";
 
 const MAX_INPUT_LENGTH = 1500;
@@ -157,6 +158,7 @@ export class Agent {
   private messages: ModelMessage[] = [];
   private callSignatures = new Set<string>();
   private stats: SessionStats;
+  private activeSkillContext: string | undefined;
   opts: AgentOptions;
 
   constructor(opts: AgentOptions) {
@@ -248,6 +250,7 @@ export class Agent {
     this.trimHistory();
     this.messages.push({ role: "user", content: userInput });
     this.callSignatures.clear();
+    this.activeSkillContext = buildSkillContext(userInput);
 
     const runStart = Date.now();
     const maxSteps = this.opts.maxSteps ?? DEFAULT_MAX_STEPS;
@@ -286,7 +289,7 @@ export class Agent {
 
         result = streamText({
           model: this.opts.model,
-          system: buildSystemPrompt(),
+          system: buildSystemPrompt(this.activeSkillContext),
           messages: this.messages,
           tools: this.opts.tools,
           abortSignal: abortController.signal,
