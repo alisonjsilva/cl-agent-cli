@@ -1,6 +1,10 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { humanizeToolName } from "../utils/formatting.js";
+import {
+  humanizeToolName,
+  isDestructiveToolName,
+  sanitizeTerminalText,
+} from "../utils/formatting.js";
 import type { ConfirmContext } from "../tools/cl-tools.js";
 
 interface ConfirmDialogProps {
@@ -10,29 +14,87 @@ interface ConfirmDialogProps {
   onDecide: (ok: boolean) => void;
 }
 
+const MAX_TYPED_CONFIRMATION = 32;
+
+/** Filters terminal control characters so only visible confirmation text is captured. */
+function containsControlCharacter(input: string): boolean {
+  return /[\u0000-\u001f\u007f]/.test(input);
+}
+
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   toolName,
   args,
   context,
   onDecide,
 }) => {
+  const [typedConfirmation, setTypedConfirmation] = useState("");
+  const isDelete = useMemo(
+    () => isDestructiveToolName(toolName),
+    [toolName],
+  );
+  const confirmationWord = isDelete ? "DELETE" : "YES";
+  const canConfirm = typedConfirmation.trim().toUpperCase() === confirmationWord;
+  const details = context?.details ?? [];
+  const safeToolName = useMemo(
+    () => sanitizeTerminalText(humanizeToolName(toolName)),
+    [toolName],
+  );
+  const safeSummary = useMemo(
+    () => (context ? sanitizeTerminalText(context.summary) : ""),
+    [context],
+  );
+  const safeDetails = useMemo(
+    () => details.map((detail) => ({
+      label: sanitizeTerminalText(detail.label),
+      value: sanitizeTerminalText(detail.value),
+    })),
+    [details],
+  );
+  const safeCommand = useMemo(
+    () => (context?.command ? sanitizeTerminalText(context.command) : undefined),
+    [context?.command],
+  );
+  const safeWarning = useMemo(
+    () => (context?.warning ? sanitizeTerminalText(context.warning) : undefined),
+    [context?.warning],
+  );
+
   useInput((input, key) => {
-    if (key.return || input === "y" || input === "Y") onDecide(true);
-    else if (key.escape || input === "n" || input === "N") onDecide(false);
+    if (key.escape) {
+      onDecide(false);
+      return;
+    }
+    if (key.backspace || key.delete) {
+      setTypedConfirmation((current) => current.slice(0, -1));
+      return;
+    }
+    if (key.return) {
+      if (canConfirm) onDecide(true);
+      return;
+    }
+    if (!input || containsControlCharacter(input)) return;
+    setTypedConfirmation((current) =>
+      (current + input).slice(-MAX_TYPED_CONFIRMATION)
+    );
   });
 
-  const maxLabel = context
-    ? Math.max(...context.details.map((d) => d.label.length))
-    : 0;
+  const maxLabel = useMemo(
+    () => (safeDetails.length ? Math.max(...safeDetails.map((d) => d.label.length)) : 0),
+    [safeDetails],
+  );
 
-  const argLines = Object.entries(args)
-    .filter(([, v]) => v !== undefined && v !== null)
-    .filter(([k]) => !context || !["order_id", "authorization_id", "capture_id", "id"].includes(k))
-    .map(([k, v]) => {
-      const label = k.replace(/_/g, " ");
-      const display = typeof v === "object" ? JSON.stringify(v) : String(v);
-      return { label, display };
-    });
+  const argLines = useMemo(
+    () => Object.entries(args)
+      .filter(([, v]) => v !== undefined && v !== null)
+      .filter(([k]) => !context || !["order_id", "authorization_id", "capture_id", "id"].includes(k))
+      .map(([k, v]) => {
+        const label = sanitizeTerminalText(k.replace(/_/g, " "));
+        const rawDisplay = typeof v === "object" ? JSON.stringify(v) : String(v);
+        const display = sanitizeTerminalText(rawDisplay);
+        return { label, display };
+      }),
+    [args, context],
+  );
 
   return (
     <Box
@@ -44,16 +106,15 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       width="100%"
     >
       <Box>
-        <Text color="yellow" bold>Are you sure you want to </Text>
-        <Text color="white" bold>{humanizeToolName(toolName)}</Text>
-        <Text color="yellow" bold>?</Text>
+        <Text color="yellow" bold>Confirm </Text>
+        <Text color="white" bold>{safeToolName}</Text>
       </Box>
 
       {context && (
         <Box marginTop={1} flexDirection="column">
-          <Text color="white" bold>{context.summary}</Text>
+          <Text color="white" bold>{safeSummary}</Text>
           <Text dimColor>{"─".repeat(36)}</Text>
-          {context.details.map((d, i) => (
+          {safeDetails.map((d, i) => (
             <Box key={i} paddingLeft={1}>
               <Text>
                 <Text dimColor>{d.label.padEnd(maxLabel + 1)}</Text>{" "}
@@ -61,6 +122,15 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               </Text>
             </Box>
           ))}
+        </Box>
+      )}
+
+      {safeCommand && (
+        <Box marginTop={1} flexDirection="column">
+          <Text color="yellow" bold>Command:</Text>
+          <Box paddingLeft={1}>
+            <Text color="magenta">{safeCommand}</Text>
+          </Box>
         </Box>
       )}
 
@@ -81,18 +151,25 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
       <Box marginTop={1}>
         <Text color="red" dimColor>
-          This operation will modify data in Commerce Layer.
+          {safeWarning ?? "This operation will modify data in Commerce Layer."}
         </Text>
       </Box>
 
-      <Box marginTop={1} justifyContent="center" gap={4}>
+      <Box marginTop={1} flexDirection="column">
+        <Text>
+          Type <Text color="green" bold>{confirmationWord}</Text> and press <Text color="green" bold>Enter</Text> to continue.
+        </Text>
         <Box>
-          <Text color="green" bold>[y/Enter]</Text>
-          <Text bold> Yes</Text>
+          <Text dimColor>Confirmation: </Text>
+          <Text color={canConfirm ? "green" : "white"}>{typedConfirmation || "(empty)"}</Text>
+          <Text dimColor>{canConfirm ? "  ✓ ready" : `  (type ${confirmationWord})`}</Text>
         </Box>
+      </Box>
+
+      <Box marginTop={1} justifyContent="center">
         <Box>
-          <Text color="red" bold>[n/Esc]</Text>
-          <Text bold> No</Text>
+          <Text color="red" bold>[Esc]</Text>
+          <Text bold> Cancel</Text>
         </Box>
       </Box>
     </Box>

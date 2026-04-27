@@ -18,7 +18,7 @@ import { SetupWizard } from "./views/SetupWizard.js";
 import { SettingsView } from "./views/SettingsView.js";
 import { AccountManager } from "./views/AccountManager.js";
 import { useKeybindings } from "./hooks/useKeybindings.js";
-import { getErrorMessage } from "./utils/formatting.js";
+import { getErrorMessage, isDestructiveToolName } from "./utils/formatting.js";
 import { logError } from "./utils/logger.js";
 
 export const App: React.FC = () => {
@@ -71,7 +71,7 @@ const AppInner: React.FC = () => {
     try {
       const reg = await buildToolRegistry(
         nextCfg,
-        (name, args) => confirmRef.current(name, args),
+        (name, args, context) => confirmRef.current(name, args, context),
       );
       setTools(reg.tools);
       setToolCount(reg.toolCount);
@@ -91,6 +91,11 @@ const AppInner: React.FC = () => {
 
   const [input, setInput] = useState("");
   const env = account ? detectEnvironment(account) : "unknown";
+  const pendingConfirmationWord = pendingConfirm
+    ? isDestructiveToolName(pendingConfirm.toolName)
+      ? "DELETE"
+      : "YES"
+    : null;
 
   useKeybindings({
     navigate,
@@ -284,7 +289,9 @@ const AppInner: React.FC = () => {
           onSubmit={handleSubmit}
           disabled={!!pendingConfirm}
           placeholder={
-            pendingConfirm ? "Awaiting confirmation (y/n)…" : undefined
+            pendingConfirmationWord
+              ? `Awaiting confirmation — type ${pendingConfirmationWord} in dialog…`
+              : undefined
           }
           account={cfg.activeAccount}
           env={env}
