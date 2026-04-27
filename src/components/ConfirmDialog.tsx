@@ -10,6 +10,8 @@ interface ConfirmDialogProps {
   onDecide: (ok: boolean) => void;
 }
 
+const MAX_TYPED_CONFIRMATION = 32;
+
 /** Filters terminal control characters so only visible confirmation text is captured. */
 function containsControlCharacter(input: string): boolean {
   return /[\u0000-\u001f\u007f]/.test(input);
@@ -67,7 +69,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       return;
     }
     if (!input || containsControlCharacter(input)) return;
-    setTypedConfirmation((current) => current + input);
+    setTypedConfirmation((current) =>
+      (current + input).slice(-MAX_TYPED_CONFIRMATION)
+    );
   });
 
   const maxLabel = useMemo(

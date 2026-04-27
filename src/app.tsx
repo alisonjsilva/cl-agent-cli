@@ -91,6 +91,11 @@ const AppInner: React.FC = () => {
 
   const [input, setInput] = useState("");
   const env = account ? detectEnvironment(account) : "unknown";
+  const pendingConfirmationWord = pendingConfirm
+    ? /\b(delete|destroy|drop|remove)\b/i.test(pendingConfirm.toolName)
+      ? "DELETE"
+      : "YES"
+    : null;
 
   useKeybindings({
     navigate,
@@ -284,7 +289,9 @@ const AppInner: React.FC = () => {
           onSubmit={handleSubmit}
           disabled={!!pendingConfirm}
           placeholder={
-            pendingConfirm ? "Awaiting confirmation (y/n)…" : undefined
+            pendingConfirmationWord
+              ? `Awaiting confirmation — type ${pendingConfirmationWord} in dialog…`
+              : undefined
           }
           account={cfg.activeAccount}
           env={env}
