@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Box, Text } from "ink";
 import { ChatMessage } from "../components/ChatMessage.js";
 import { RichText } from "../components/RichText.js";
@@ -20,7 +20,7 @@ interface ChatViewProps {
   sessionStats?: SessionStats;
 }
 
-export const ChatView: React.FC<ChatViewProps> = ({
+export const ChatView: React.FC<ChatViewProps> = React.memo(({
   entries,
   busy,
   streamingText,
@@ -32,6 +32,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
   sessionStats,
 }) => {
   const hasContent = entries.length > 0 || busy;
+
+  const messageList = useMemo(
+    () => entries.map((entry) => <ChatMessage key={entry.id} entry={entry} />),
+    [entries],
+  );
 
   return (
     <Box flexDirection="column" flexGrow={1} width="100%">
@@ -46,20 +51,15 @@ export const ChatView: React.FC<ChatViewProps> = ({
         />
       )}
 
-      {entries.map((entry) => (
-        <ChatMessage key={entry.id} entry={entry} />
-      ))}
+      {messageList}
 
       {busy && streamingText && (
         <Box
-          borderStyle="round"
-          borderColor="green"
           flexDirection="column"
           marginTop={1}
-          paddingX={1}
+          paddingLeft={2}
           width="100%"
         >
-          <Text color="green" bold>assistant</Text>
           <RichText text={streamingText} />
           <Text dimColor>▊</Text>
         </Box>
@@ -70,7 +70,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       {sessionStats && hasContent && <SessionStatsBar stats={sessionStats} />}
     </Box>
   );
-};
+});
 
 function formatDuration(ms: number): string {
   const totalSec = Math.floor(ms / 1000);

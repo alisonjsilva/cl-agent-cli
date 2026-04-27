@@ -102,7 +102,13 @@ const AppInner: React.FC = () => {
     disabled: busy || !!pendingConfirm || view !== "chat",
   });
 
-  const handleSubmit = async (line: string) => {
+  const handleSubmitRef = useRef<(line: string) => Promise<void>>(async () => {});
+
+  const stableSubmit = useCallback((line: string) => {
+    handleSubmitRef.current(line);
+  }, []);
+
+  handleSubmitRef.current = async (line: string) => {
     if (!line.trim()) return;
     setInput("");
 
@@ -282,21 +288,19 @@ const AppInner: React.FC = () => {
         />
       )}
 
-      <Box marginTop={1}>
-        <InputBar
-          value={input}
-          onChange={setInput}
-          onSubmit={handleSubmit}
-          disabled={!!pendingConfirm}
-          placeholder={
-            pendingConfirmationWord
-              ? `Awaiting confirmation — type ${pendingConfirmationWord} in dialog…`
-              : undefined
-          }
-          account={cfg.activeAccount}
-          env={env}
-        />
-      </Box>
+      <InputBar
+        value={input}
+        onChange={setInput}
+        onSubmit={stableSubmit}
+        disabled={!!pendingConfirm}
+        placeholder={
+          pendingConfirmationWord
+            ? `Awaiting confirmation — type ${pendingConfirmationWord} in dialog…`
+            : undefined
+        }
+        account={cfg.activeAccount}
+        env={env}
+      />
 
       <StatusBar />
     </Box>

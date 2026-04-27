@@ -9,11 +9,9 @@ export const ChatMessage: React.FC<{ entry: ChatEntry }> = React.memo(({ entry }
     case "user":
       return (
         <Box
-          borderStyle="round"
-          borderColor="cyan"
           flexDirection="column"
           marginTop={1}
-          paddingX={1}
+          paddingLeft={2}
           width="100%"
         >
           <Text color="cyan" bold>you</Text>
@@ -24,11 +22,9 @@ export const ChatMessage: React.FC<{ entry: ChatEntry }> = React.memo(({ entry }
     case "assistant":
       return (
         <Box
-          borderStyle="round"
-          borderColor="green"
           flexDirection="column"
           marginTop={1}
-          paddingX={1}
+          paddingLeft={2}
           width="100%"
         >
           <Text color="green" bold>assistant</Text>

@@ -3,6 +3,13 @@ import { Box, Text } from "ink";
 import { EnvBadge } from "./EnvBadge.js";
 import { EnvironmentType } from "../config/schema.js";
 
+const ENV_COLORS: Record<EnvironmentType, string> = {
+  production: "red",
+  staging: "yellow",
+  test: "green",
+  unknown: "gray",
+};
+
 interface HeaderBarProps {
   account: string | null;
   provider: string;
@@ -12,7 +19,7 @@ interface HeaderBarProps {
   busy: boolean;
 }
 
-export const HeaderBar: React.FC<HeaderBarProps> = ({
+export const HeaderBar: React.FC<HeaderBarProps> = React.memo(({
   account,
   provider,
   model,
@@ -20,39 +27,33 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   toolsCount,
   busy,
 }) => {
+  const borderColor = ENV_COLORS[env];
+
   return (
     <Box
       borderStyle="round"
-      borderColor={env === "production" ? "red" : env === "staging" ? "yellow" : "green"}
-      flexDirection="column"
+      borderColor={borderColor}
       paddingX={1}
       width="100%"
+      justifyContent="space-between"
     >
-      <Box justifyContent="space-between">
-        <Box gap={1}>
-          <Text color="green" bold>Commerce Layer Agent</Text>
-          <EnvBadge env={env} />
-        </Box>
-        <Text color={busy ? "yellow" : "gray"}>
-          {busy ? "thinking…" : `${toolsCount} tools`}
-        </Text>
+      <Box gap={1}>
+        <Text color="green" bold>CL Agent</Text>
+        <EnvBadge env={env} />
+        <Text dimColor>│</Text>
+        <Text dimColor>model </Text>
+        <Text color="magenta">{model}</Text>
+        <Text dimColor>│</Text>
+        <Text dimColor>account </Text>
+        <Text color="blue">{account ?? "none"}</Text>
       </Box>
-      <Box gap={1} marginTop={1}>
-        <Pill label="provider" value={provider} color="cyan" />
-        <Pill label="model" value={model} color="magenta" />
-        <Pill label="account" value={account ?? "none"} color="blue" />
+      <Box gap={1}>
+        {busy ? (
+          <Text color="yellow">● working</Text>
+        ) : (
+          <Text dimColor>{toolsCount} tools</Text>
+        )}
       </Box>
     </Box>
   );
-};
-
-const Pill: React.FC<{ label: string; value: string; color: string }> = ({
-  label,
-  value,
-  color,
-}) => (
-  <Box borderStyle="round" borderColor={color} paddingX={1}>
-    <Text color={color}>{label}:</Text>
-    <Text> {value}</Text>
-  </Box>
-);
+});

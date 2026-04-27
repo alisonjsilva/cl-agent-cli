@@ -21,7 +21,7 @@ interface InputBarProps {
   env?: EnvironmentType;
 }
 
-export const InputBar: React.FC<InputBarProps> = ({
+export const InputBar: React.FC<InputBarProps> = React.memo(({
   value,
   onChange,
   onSubmit,
@@ -155,15 +155,11 @@ export const InputBar: React.FC<InputBarProps> = ({
           )}
         </Box>
       </Box>
-      {!disabled && (
+      {showAutocomplete && (
         <Box paddingLeft={2}>
-          <Text dimColor>
-            {showAutocomplete
-              ? "↑↓ navigate  Enter/Tab select  Esc dismiss"
-              : "Enter to send  / for commands  Ctrl+C to exit"}
-          </Text>
+          <Text dimColor>↑↓ navigate  Tab/Enter select  Esc dismiss</Text>
         </Box>
       )}
     </Box>
   );
-};
+});

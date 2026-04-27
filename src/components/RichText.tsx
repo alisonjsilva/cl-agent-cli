@@ -91,49 +91,198 @@ const InlineRich: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-export const RichText: React.FC<{ text: string }> = ({ text }) => {
-  const lines = text.replace(/\r\n/g, "\n").split("\n");
+// --- Table parsing ---
+
+interface ParsedTable {
+  headers: string[];
+  rows: string[][];
+}
+
+const TABLE_ROW_RE = /^\|(.+)\|$/;
+const SEPARATOR_RE = /^\|[\s:]*-{2,}[\s:]*(\|[\s:]*-{2,}[\s:]*)*\|$/;
+
+function isTableRow(line: string): boolean {
+  return TABLE_ROW_RE.test(line.trim());
+}
+
+function isSeparatorRow(line: string): boolean {
+  return SEPARATOR_RE.test(line.trim());
+}
+
+function parseTableCells(line: string): string[] {
+  const m = line.trim().match(TABLE_ROW_RE);
+  if (!m) return [];
+  return m[1]!.split("|").map((c) => c.trim());
+}
+
+function extractTableBlocks(
+  lines: string[],
+): Array<{ type: "lines"; lines: string[] } | { type: "table"; table: ParsedTable }> {
+  const blocks: Array<
+    { type: "lines"; lines: string[] } | { type: "table"; table: ParsedTable }
+  > = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    // Try to detect a table: header row, then separator, then data rows
+    if (
+      i + 1 < lines.length &&
+      isTableRow(lines[i]!) &&
+      isSeparatorRow(lines[i + 1]!)
+    ) {
+      const headers = parseTableCells(lines[i]!);
+      i += 2; // skip header + separator
+      const rows: string[][] = [];
+      while (i < lines.length && isTableRow(lines[i]!)) {
+        if (isSeparatorRow(lines[i]!)) {
+          i++;
+          continue;
+        }
+        rows.push(parseTableCells(lines[i]!));
+        i++;
+      }
+      blocks.push({ type: "table", table: { headers, rows } });
+    } else {
+      // Accumulate non-table lines
+      const last = blocks[blocks.length - 1];
+      if (last && last.type === "lines") {
+        last.lines.push(lines[i]!);
+      } else {
+        blocks.push({ type: "lines", lines: [lines[i]!] });
+      }
+      i++;
+    }
+  }
+
+  return blocks;
+}
+
+const RichTable: React.FC<{ table: ParsedTable }> = ({ table }) => {
+  const allRows = [table.headers, ...table.rows];
+  const colCount = Math.max(...allRows.map((r) => r.length));
+
+  // Compute max width per column
+  const colWidths: number[] = [];
+  for (let c = 0; c < colCount; c++) {
+    let max = 0;
+    for (const row of allRows) {
+      const cell = row[c] ?? "";
+      max = Math.max(max, cell.length);
+    }
+    colWidths.push(max);
+  }
+
+  const padCell = (text: string, col: number) =>
+    text + " ".repeat(Math.max(0, (colWidths[col] ?? 0) - text.length));
+
+  const renderRow = (cells: string[], key: string, isHeader: boolean) => (
+    <Box key={key}>
+      <Text dimColor>{"  "}</Text>
+      {cells.map((cell, c) => (
+        <React.Fragment key={c}>
+          {c === 0 && <Text dimColor>│ </Text>}
+          {isHeader ? (
+            <Text bold>{padCell(cell, c)}</Text>
+          ) : (
+            <InlineRich text={padCell(cell, c)} />
+          )}
+          <Text dimColor> │{c < cells.length - 1 ? " " : ""}</Text>
+        </React.Fragment>
+      ))}
+    </Box>
+  );
+
+  const separator = (key: string) => {
+    const line = colWidths.map((w) => "─".repeat(w + 2)).join("┼");
+    return (
+      <Box key={key}>
+        <Text dimColor>{"  ├"}{line}{"┤"}</Text>
+      </Box>
+    );
+  };
+
+  const topBorder = () => {
+    const line = colWidths.map((w) => "─".repeat(w + 2)).join("┬");
+    return (
+      <Box key="top">
+        <Text dimColor>{"  ┌"}{line}{"┐"}</Text>
+      </Box>
+    );
+  };
+
+  const bottomBorder = () => {
+    const line = colWidths.map((w) => "─".repeat(w + 2)).join("┴");
+    return (
+      <Box key="bottom">
+        <Text dimColor>{"  └"}{line}{"┘"}</Text>
+      </Box>
+    );
+  };
 
   return (
     <Box flexDirection="column">
-      {lines.map((line, i) => {
-        const trimmed = line.replace(/^#{1,6}\s*/, "")
-          .replace(/\*\*(.*?)\*\*/g, "$1")
-          .replace(/`([^`]+)`/g, "$1");
+      {topBorder()}
+      {renderRow(table.headers, "header", true)}
+      {separator("sep")}
+      {table.rows.map((row, i) => renderRow(row, `row-${i}`, false))}
+      {bottomBorder()}
+    </Box>
+  );
+};
 
-        const bulletMatch = trimmed.match(/^[-•*]\s+/);
-        if (bulletMatch) {
-          const content = trimmed.slice(bulletMatch[0].length);
-          return (
-            <Box key={i} paddingLeft={1}>
-              <Text color="cyan">{"  · "}</Text>
-              <Box flexShrink={1}>
-                <InlineRich text={content} />
+// --- Main component ---
+
+export const RichText: React.FC<{ text: string }> = ({ text }) => {
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const blocks = extractTableBlocks(lines);
+
+  return (
+    <Box flexDirection="column">
+      {blocks.map((block, bi) => {
+        if (block.type === "table") {
+          return <RichTable key={`table-${bi}`} table={block.table} />;
+        }
+        return block.lines.map((line, li) => {
+          const key = `${bi}-${li}`;
+          const trimmed = line
+            .replace(/^#{1,6}\s*/, "")
+            .replace(/\*\*(.*?)\*\*/g, "$1")
+            .replace(/`([^`]+)`/g, "$1");
+
+          const bulletMatch = trimmed.match(/^[-•*]\s+/);
+          if (bulletMatch) {
+            const content = trimmed.slice(bulletMatch[0].length);
+            return (
+              <Box key={key} paddingLeft={1}>
+                <Text color="cyan">{"  · "}</Text>
+                <Box flexShrink={1}>
+                  <InlineRich text={content} />
+                </Box>
               </Box>
+            );
+          }
+
+          const numMatch = trimmed.match(/^(\d+)[.)]\s+/);
+          if (numMatch) {
+            const content = trimmed.slice(numMatch[0].length);
+            return (
+              <Box key={key} paddingLeft={1}>
+                <Text dimColor>{` ${numMatch[1]}. `}</Text>
+                <Box flexShrink={1}>
+                  <InlineRich text={content} />
+                </Box>
+              </Box>
+            );
+          }
+
+          if (!trimmed) return <Text key={key}>{" "}</Text>;
+
+          return (
+            <Box key={key}>
+              <InlineRich text={trimmed} />
             </Box>
           );
-        }
-
-        const numMatch = trimmed.match(/^(\d+)[.)]\s+/);
-        if (numMatch) {
-          const content = trimmed.slice(numMatch[0].length);
-          return (
-            <Box key={i} paddingLeft={1}>
-              <Text dimColor>{` ${numMatch[1]}. `}</Text>
-              <Box flexShrink={1}>
-                <InlineRich text={content} />
-              </Box>
-            </Box>
-          );
-        }
-
-        if (!trimmed) return <Text key={i}>{" "}</Text>;
-
-        return (
-          <Box key={i}>
-            <InlineRich text={trimmed} />
-          </Box>
-        );
+        });
       })}
     </Box>
   );

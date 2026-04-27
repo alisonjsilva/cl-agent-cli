@@ -8,7 +8,7 @@ interface StatusBarProps {
 export const StatusBar: React.FC<StatusBarProps> = ({ message }) => (
   <Box paddingX={1}>
     <Text dimColor>
-      {message ?? "Ctrl+P provider  Ctrl+A accounts  / commands  Ctrl+C exit"}
+      {message ?? "Ctrl+P provider · Ctrl+A accounts · / commands · Ctrl+C exit"}
     </Text>
   </Box>
 );
