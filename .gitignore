@@ -3,3 +3,5 @@ build/
 *.tsbuildinfo
 cl-agent
 .DS_Store
+.env
+.env.*
