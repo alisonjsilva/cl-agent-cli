@@ -3,6 +3,7 @@ import { Config } from "../config/schema.js";
 import { getActiveAccount } from "../config/accounts.js";
 import { createCLTools, isMutatingTool, type MutationConfirmFn } from "./cl-tools.js";
 import { loadMCPTools } from "./mcp-tools.js";
+import { createDocsTools } from "./cl-docs.js";
 
 export interface ToolRegistryResult {
   tools: ToolSet;
@@ -16,6 +17,9 @@ export async function buildToolRegistry(
 ): Promise<ToolRegistryResult> {
   const account = getActiveAccount(cfg);
   let tools: ToolSet = {};
+
+  // Docs search is always available, regardless of account configuration.
+  tools = { ...tools, ...createDocsTools() };
 
   if (account) {
     const clTools = createCLTools(account, confirmFn);
