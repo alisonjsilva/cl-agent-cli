@@ -266,11 +266,6 @@ const AppInner: React.FC = () => {
         entries={entries}
         busy={busy}
         streamingText={streamingText}
-        provider={cfg.provider}
-        model={cfg.model}
-        account={cfg.activeAccount}
-        env={env}
-        toolsCount={toolCount}
         sessionStats={sessionStats}
       />
 

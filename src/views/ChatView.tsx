@@ -6,17 +6,11 @@ import { ThinkingIndicator } from "../components/ThinkingIndicator.js";
 import { IntroBanner } from "../components/IntroBanner.js";
 import { ChatEntry } from "../hooks/useAgent.js";
 import type { SessionStats } from "../ai/agent.js";
-import type { EnvironmentType } from "../config/schema.js";
 
 interface ChatViewProps {
   entries: ChatEntry[];
   busy: boolean;
   streamingText: string;
-  provider: string;
-  model: string;
-  account: string | null;
-  env: EnvironmentType;
-  toolsCount: number;
   sessionStats?: SessionStats;
 }
 
@@ -24,11 +18,6 @@ export const ChatView: React.FC<ChatViewProps> = React.memo(({
   entries,
   busy,
   streamingText,
-  provider,
-  model,
-  account,
-  env,
-  toolsCount,
   sessionStats,
 }) => {
   const hasContent = entries.length > 0 || busy;
@@ -41,14 +30,7 @@ export const ChatView: React.FC<ChatViewProps> = React.memo(({
   return (
     <Box flexDirection="column" flexGrow={1} width="100%">
       {!hasContent && (
-        <IntroBanner
-          version="0.1.0"
-          provider={provider}
-          model={model}
-          account={account}
-          env={env}
-          toolsCount={toolsCount}
-        />
+        <IntroBanner version="0.1.0" />
       )}
 
       {messageList}
