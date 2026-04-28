@@ -1,4 +1,4 @@
-# Commerce Layer Agent TUI
+# cl-agent-cli — Commerce Layer CLI Agent
 
 Interactive terminal agent for [Commerce Layer](https://commercelayer.io). Query and manage orders, customers, SKUs, shipments, payments, and more using natural language — powered by the AI provider of your choice.
 
@@ -15,13 +15,13 @@ Interactive terminal agent for [Commerce Layer](https://commercelayer.io). Query
 ## Install
 
 ```bash
-npm install -g @commercelayer/agent-tui
+npm install -g cl-agent-cli
 ```
 
 Or run directly:
 
 ```bash
-npx @commercelayer/agent-tui
+npx cl-agent-cli
 ```
 
 ## Quick Start
@@ -132,8 +132,8 @@ CL_AGENT_DEBUG=1 cl-agent
 ## Development
 
 ```bash
-git clone https://github.com/commercelayer/agent-tui.git
-cd agent-tui
+git clone https://github.com/alisonjsilva/cl-agent-cli.git
+cd cl-agent-cli
 npm install
 npm run build
 node build/index.js

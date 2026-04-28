@@ -1,0 +1,7 @@
+src/
+tsconfig.json
+.cursor/
+.github/
+CLAUDE.md
+*.local
+*.log

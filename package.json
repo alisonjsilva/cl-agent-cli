@@ -1,7 +1,7 @@
 {
-  "name": "@commercelayer/agent-tui",
+  "name": "cl-agent-cli",
   "version": "0.1.0",
-  "description": "Interactive TUI agent for Commerce Layer — bring your own LLM provider.",
+  "description": "Interactive CLI agent for Commerce Layer — bring your own LLM provider.",
   "type": "module",
   "bin": {
     "cl-agent": "./build/index.js"
@@ -20,10 +20,9 @@
   },
   "keywords": [
     "commerce-layer",
-    "tui",
+    "cli",
     "agent",
     "ai",
-    "cli",
     "vercel-ai-sdk",
     "openrouter",
     "anthropic",
@@ -33,10 +32,13 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/commercelayer/agent-tui.git"
+    "url": "https://github.com/alisonjsilva/cl-agent-cli.git"
   },
-  "author": "Commerce Layer",
+  "author": "Alison Silva <alison.silva@vml.com>",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.71",
     "@ai-sdk/gateway": "^3.0.104",
