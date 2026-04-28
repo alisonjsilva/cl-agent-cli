@@ -13,6 +13,23 @@ const MAX_RETRIES = 2;
 const BASE_RETRY_DELAY_MS = 1000;
 const apiLimiter = new RateLimiter(60, 60_000); // 60 requests per minute
 
+/**
+ * Reject paths that try to escape the `/api/` prefix or change the URL scheme.
+ * The AI builds these paths from `resource_type` / `id` arguments, so we treat
+ * them as untrusted input.
+ */
+function assertSafeApiPath(path: string): void {
+  if (
+    path.startsWith("/") ||
+    path.includes("..") ||
+    path.includes("//") ||
+    path.includes("\\") ||
+    /^[a-z][a-z0-9+.-]*:/i.test(path)
+  ) {
+    throw new Error(`Unsafe API path rejected: ${path}`);
+  }
+}
+
 function retryDelayMs(attempt: number, retryAfterHeader?: string | null): number {
   // Honour Retry-After header when present
   if (retryAfterHeader) {
@@ -40,6 +57,7 @@ export async function clFetch(
       const token = await getAccessToken(account);
       const base = normalizeEndpoint(account.baseEndpoint);
       validateEndpoint(base, account.allowCustomEndpoint);
+      assertSafeApiPath(path);
       const url = `${base}/api/${path}`;
 
       const res = await fetch(url, {
@@ -151,7 +169,7 @@ export function buildQuery(params: {
   if (params.include) qs.push(`include=${params.include}`);
   if (params.filters) {
     for (const [k, v] of Object.entries(params.filters)) {
-      qs.push(`filter[q][${k}]=${encodeURIComponent(v)}`);
+      qs.push(`filter[q][${encodeURIComponent(k)}]=${encodeURIComponent(v)}`);
     }
   }
   return qs.length > 0 ? `?${qs.join("&")}` : "";

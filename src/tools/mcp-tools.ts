@@ -31,6 +31,32 @@ function buildStdioEnv(configEnv?: Record<string, string>): Record<string, strin
   return { ...env, ...(configEnv ?? {}) };
 }
 
+/**
+ * Reject MCP SSE URLs that aren't HTTPS (or HTTP loopback for local dev),
+ * and block embedded credentials. Logs a security event when rejected.
+ */
+function assertSafeMCPUrl(name: string, raw: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    logSecurityEvent("mcp_invalid_url", `server=${name}`);
+    throw new Error(`MCP server "${name}" has an invalid url.`);
+  }
+  if (parsed.username || parsed.password) {
+    logSecurityEvent("mcp_url_credentials", `server=${name} host=${parsed.hostname}`);
+    throw new Error(`MCP server "${name}" url must not contain embedded credentials.`);
+  }
+  const isLoopback =
+    parsed.hostname === "localhost" ||
+    parsed.hostname === "127.0.0.1" ||
+    parsed.hostname === "::1";
+  if (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && isLoopback)) {
+    logSecurityEvent("mcp_insecure_url", `server=${name} host=${parsed.hostname} proto=${parsed.protocol}`);
+    throw new Error(`MCP server "${name}" url must use HTTPS (http allowed only for localhost).`);
+  }
+}
+
 const activeClients: MCPClient[] = [];
 
 const MUTATION_KEYWORDS =
@@ -107,6 +133,7 @@ async function connectMCPServer(
   config: MCPServerConfig,
 ): Promise<MCPClient> {
   if (config.url) {
+    assertSafeMCPUrl(name, config.url);
     return createMCPClient({
       transport: {
         type: "sse",

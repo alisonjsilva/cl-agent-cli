@@ -34,6 +34,12 @@ export async function loadConfig(): Promise<Config> {
 
 export async function saveConfig(cfg: Config): Promise<void> {
   const file = configPath();
-  await fs.mkdir(path.dirname(file), { recursive: true });
+  const dir = path.dirname(file);
+  await fs.mkdir(dir, { recursive: true });
+  // Best-effort: tighten directory perms (POSIX only — chmod is a no-op on Windows).
+  try { await fs.chmod(dir, 0o700); } catch { /* ignore */ }
   await fs.writeFile(file, JSON.stringify(cfg, null, 2), { mode: 0o600 });
+  // fs.writeFile only applies `mode` on file creation; force perms on every save
+  // so config tightens itself even if the file pre-existed with looser perms.
+  try { await fs.chmod(file, 0o600); } catch { /* ignore */ }
 }
