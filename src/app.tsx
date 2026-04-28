@@ -19,6 +19,7 @@ import { SettingsView } from "./views/SettingsView.js";
 import { AccountManager } from "./views/AccountManager.js";
 import { useKeybindings } from "./hooks/useKeybindings.js";
 import { getErrorMessage, isDestructiveToolName } from "./utils/formatting.js";
+import { setDocsAskEnabled, getDocsAskEnabled } from "./tools/cl-docs.js";
 import { logError } from "./utils/logger.js";
 
 export const App: React.FC = () => {
@@ -136,6 +137,7 @@ const AppInner: React.FC = () => {
   /key <apiKey>      Set API key for current provider
   /settings          Open settings (provider, model, etc.)
   /config            Show config (redacted)
+  /docs [on|off]     Toggle docs ?ask= semantic search (default: on)
   /clear             Clear chat
   /quit              Quit`,
         });
@@ -202,6 +204,20 @@ const AppInner: React.FC = () => {
       case "settings":
         navigate("settings");
         break;
+
+      case "docs": {
+        const current = getDocsAskEnabled();
+        const next = arg === "on" ? true : arg === "off" ? false : !current;
+        setDocsAskEnabled(next);
+        await update({ ...cfg, docsAskEnabled: next });
+        append({
+          kind: "info",
+          text: next
+            ? "Docs ?ask= ON — semantic search active (20 s timeout, then keyword fallback)."
+            : "Docs ?ask= OFF — using fast keyword index search only (~2–5 s).",
+        });
+        break;
+      }
 
       case "config": {
         const redacted = JSON.parse(JSON.stringify(cfg));

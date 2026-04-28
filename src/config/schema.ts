@@ -86,6 +86,13 @@ export interface Config {
   activeAccount: string | null;
   accounts: Record<string, CLAccount>;
   mcpServers: Record<string, MCPServerConfig>;
+  /**
+   * When true (default), cl_search_docs first tries the ?ask= semantic
+   * endpoint which returns a pre-distilled answer (~150 tokens). Falls back
+   * to keyword index search if the endpoint times out (>20 s).
+   * Set to false to always use the fast keyword fallback (~2–5 s, ~2000 tokens).
+   */
+  docsAskEnabled?: boolean;
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -102,4 +109,5 @@ export const DEFAULT_CONFIG: Config = {
   activeAccount: null,
   accounts: {},
   mcpServers: {},
+  docsAskEnabled: false,
 };

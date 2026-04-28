@@ -3,7 +3,7 @@ import { Config } from "../config/schema.js";
 import { getActiveAccount } from "../config/accounts.js";
 import { createCLTools, isMutatingTool, type MutationConfirmFn } from "./cl-tools.js";
 import { loadMCPTools } from "./mcp-tools.js";
-import { createDocsTools } from "./cl-docs.js";
+import { createDocsTools, setDocsAskEnabled } from "./cl-docs.js";
 
 export interface ToolRegistryResult {
   tools: ToolSet;
@@ -19,6 +19,8 @@ export async function buildToolRegistry(
   let tools: ToolSet = {};
 
   // Docs search is always available, regardless of account configuration.
+  // Sync the ?ask= flag from config so it's correct from the first tool call.
+  setDocsAskEnabled(cfg.docsAskEnabled !== false);
   tools = { ...tools, ...createDocsTools() };
 
   if (account) {

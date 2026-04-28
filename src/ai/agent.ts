@@ -9,7 +9,7 @@ import { buildSkillContext } from "./prompt-skills.js";
 import { debugLog } from "../utils/logger.js";
 
 const MAX_INPUT_LENGTH = 1500;
-const DEFAULT_MAX_STEPS = 10;
+const DEFAULT_MAX_STEPS = 20;
 
 const MAX_HISTORY_MESSAGES = 80;
 const TRIM_TARGET = 40;

@@ -1,4 +1,4 @@
-const MAX_ARG_SUMMARY = 96;
+const MAX_ARG_SUMMARY = 160;
 const MAX_LINES = 24;
 const MAX_CHARS = 1500;
 // Matches ANSI CSI (`ESC [`), OSC (`ESC ]`) and single-byte escape sequences.
@@ -31,10 +31,18 @@ export function summarizeArgs(args: Record<string, unknown>): string {
 }
 
 export function compactToolResult(output: string): string {
-  const first = output.split("\n").find((l) => l.trim());
-  if (!first) return output.slice(0, 100);
-  const trimmed = first.trim();
-  return trimmed.length > 120 ? trimmed.slice(0, 119) + "…" : trimmed;
+  const lines = output.split("\n");
+
+  // Skip markdown headings (# ## ###) and metadata lines (Source: …) to reach
+  // the first line that actually conveys what the result contains.
+  const meaningful = lines.find((l) => {
+    const t = l.trim();
+    return t.length > 0 && !t.startsWith("#") && !t.startsWith("Source:");
+  });
+
+  const candidate = (meaningful ?? lines.find((l) => l.trim()) ?? "").trim();
+  if (!candidate) return output.slice(0, 160);
+  return candidate.length > 160 ? candidate.slice(0, 159) + "…" : candidate;
 }
 
 export function truncateText(text: string): string {
@@ -99,7 +107,7 @@ function stripMarkdown(line: string): string {
 function summarizeValue(value: unknown): string {
   if (typeof value === "string") {
     const s = value.replace(/\s+/g, " ").trim();
-    return s.length <= 24 ? s : `${s.slice(0, 23)}…`;
+    return s.length <= 55 ? s : `${s.slice(0, 54)}…`;
   }
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (Array.isArray(value)) return `[${value.length}]`;

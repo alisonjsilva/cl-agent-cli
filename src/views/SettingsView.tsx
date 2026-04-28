@@ -11,6 +11,7 @@ import {
   PROVIDER_LABELS,
   ProviderName,
 } from "../config/schema.js";
+import { setDocsAskEnabled } from "../tools/cl-docs.js";
 
 interface SettingsViewProps {
   onBack: () => void;
@@ -357,6 +358,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
       ? "via env"
       : "not set";
 
+  const askEnabled = cfg.docsAskEnabled !== false;
+  const docsLabel = `Toggle Docs ?ask= Search  [${askEnabled ? "ON  — semantic, ~20 s" : "OFF — keyword, ~3 s "}]`;
+
   return (
     <Box flexDirection="column" padding={1}>
       <Text color="green" bold>Settings</Text>
@@ -371,9 +375,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
             { label: "Switch Provider", value: "provider" },
             { label: "Change Model", value: "model" },
             { label: "Change API Key", value: "api_key" },
+            { label: docsLabel, value: "docs_ask" },
             { label: "Back to Chat", value: "back" },
           ]}
-          onChange={(value) => {
+          onChange={async (value) => {
             setMessage(null);
             if (value === "back") {
               onBack();
@@ -387,6 +392,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
               setPendingProvider(null);
               setPendingApiKey(undefined);
               setStep("model");
+            } else if (value === "docs_ask") {
+              const next = !askEnabled;
+              setDocsAskEnabled(next);
+              await update({ ...cfg, docsAskEnabled: next });
+              setMessage(
+                next
+                  ? "Docs ?ask= ON — semantic search, 20 s timeout + keyword fallback."
+                  : "Docs ?ask= OFF — fast keyword index only (~2–5 s).",
+              );
             } else {
               setStep(value as SettingsStep);
             }
