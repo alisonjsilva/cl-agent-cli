@@ -8,7 +8,7 @@ Interactive Ink-based terminal UI that lets users manage the Commerce Layer API 
 npm run build        # tsc + chmod 755 build/index.js
 npm run dev          # tsc --watch
 npm start            # node build/index.js
-npm run compile      # bun compile to standalone binary
+npm run compile      # bun build --compile to standalone binary
 ```
 
 No test runner or linter is configured.
@@ -21,7 +21,7 @@ No test runner or linter is configured.
 
 - **Config** (`src/config/`): Loads/saves `~/.config/cl-agent/config.json` (mode 0600). `ConfigProvider` context exposes `{ cfg, update }` to the tree.
 - **AI** (`src/ai/`): `Agent` class wraps `streamText()` with message history, tool deduplication, and max 10 steps per request. `createModel()` returns a provider-specific model instance. System prompt is hardened against prompt injection.
-- **Tools** (`src/tools/`): Registry merges built-in CL tools + MCP server tools. CL tools use `clFetch()` for JSON:API calls with auto-retry on 429/5xx. Mutations require user confirmation via `requireConfirm()`.
+- **Tools** (`src/tools/`): Registry always exposes Commerce Layer docs search, then merges built-in CL tools and optional MCP server tools. CL tools use `clFetch()` for JSON:API calls with auto-retry on 429/5xx. Mutations require user confirmation via `requireConfirm()`.
 - **Views** (`src/views/`): Full-screen UIs — ChatView, SetupWizard, SettingsView, AccountManager. Navigation via `useRouter` hook.
 - **Components** (`src/components/`): Reusable Ink components — InputBar, ChatMessage, ConfirmDialog, HeaderBar, EnvBadge, RichText.
 - **Hooks** (`src/hooks/`): `useAgent` (agent lifecycle + chat state), `useConfig` (context), `useRouter` (view navigation), `useKeybindings` (Ctrl+P/A shortcuts).
@@ -61,6 +61,12 @@ tool({
 - Filtering uses Commerce Layer's ransack-style syntax (`_eq`, `_cont` suffixes).
 - Pagination: `page_size` 1–25, `page_number`. Default sort: `-created_at`.
 
+## Config Notes
+
+- Provider configs also support optional `baseURL` overrides.
+- `docsAskEnabled` controls whether docs lookup uses the slower semantic `?ask=` endpoint or the fast keyword fallback.
+- `providers.<name>.model` is persisted per provider so settings can restore the last model used for that provider.
+
 ## Security Invariants — DO NOT WEAKEN
 
 - Mutation confirmation dialogs are mandatory — never bypass them.
@@ -78,6 +84,17 @@ tool({
 
 Commands are parsed in `handleCommand()` in `app.tsx`. Pattern: `/command [args...]`. Commands either mutate config (and persist), navigate to a view, or append info entries to chat history.
 
+- `/help`
+- `/model <id>`
+- `/models`
+- `/account` and `/accounts`
+- `/provider` and `/settings`
+- `/key <apiKey>`
+- `/config`
+- `/docs [on|off]`
+- `/clear`
+- `/quit` and `/exit`
+
 ## AI Providers
 
 | Provider | Package | Notes |
@@ -87,3 +104,4 @@ Commands are parsed in `handleCommand()` in `app.tsx`. Pattern: `/command [args.
 | Google | `@ai-sdk/google` | Gemini models |
 | OpenRouter | `@openrouter/ai-sdk-provider` | Multi-provider gateway |
 | Vercel AI Gateway | `@ai-sdk/gateway` | Vercel managed gateway |
+| NVIDIA NIM | `@ai-sdk/openai-compatible` | OpenAI-compatible chat models via NIM |

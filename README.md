@@ -1,98 +1,150 @@
-# cl-agent-cli — Commerce Layer CLI Agent
+# cl-agent-cli
 
-Interactive terminal agent for [Commerce Layer](https://commercelayer.io). Query and manage orders, customers, SKUs, shipments, payments, and more using natural language — powered by the AI provider of your choice.
+Open-source terminal agent for [Commerce Layer](https://commercelayer.io). It gives you a local, interactive CLI for exploring and operating Commerce Layer resources with natural language, while keeping mutations behind explicit confirmation prompts.
 
-## Features
+## Highlights
 
-- **Multi-provider AI** — Anthropic, OpenAI, Google, OpenRouter, Vercel AI Gateway
-- **Built-in Commerce Layer tools** — List, search, and mutate resources directly
-- **Multi-account support** — Switch between production, staging, and test environments
-- **Environment awareness** — Color-coded badges (red=prod, yellow=staging, green=test)
-- **Mutation confirmation** — Interactive y/n dialog before any data modification
-- **Optional MCP servers** — Connect to external MCP servers for additional tools
-- **Streaming responses** — Real-time token streaming in the terminal
+- Multi-provider LLM support: Anthropic, OpenAI, Google, OpenRouter, Vercel AI Gateway, and NVIDIA NIM
+- Built-in Commerce Layer tools for listing, searching, and mutating resources
+- Built-in Commerce Layer docs lookup, with optional semantic `?ask=` mode
+- Multi-account setup for production, staging, and test environments
+- Local-first config stored on disk with secret redaction in UI output
+- Optional MCP servers for extending the agent with external tools
+- Ink-based full-screen terminal UI with streamed responses
+
+## Requirements
+
+- Node.js 20 or newer
+- A Commerce Layer organization endpoint
+- One of these Commerce Layer auth methods:
+  - OAuth client credentials
+  - Access token
+- An API key for your selected LLM provider
+  - Vercel AI Gateway can also use `AI_GATEWAY_API_KEY` from the environment
+- Bun is optional and only needed for building the standalone binary
 
 ## Install
+
+Global install:
 
 ```bash
 npm install -g cl-agent-cli
 ```
 
-Or run directly:
+Run without installing:
 
 ```bash
 npx cl-agent-cli
 ```
 
+Alternative runners:
+
+```bash
+pnpm dlx cl-agent-cli
+bunx cl-agent-cli
+```
+
 ## Quick Start
+
+Start the CLI:
 
 ```bash
 cl-agent
 ```
 
-On first run, the setup wizard guides you through:
+On first run the setup wizard asks for:
 
-1. **LLM provider** — Choose Anthropic, OpenAI, Google, OpenRouter, or Vercel AI Gateway
-2. **API key** — Your provider API key
-3. **Model** — Select or type a model ID
-4. **CL account** — Name, endpoint, and authentication
+1. LLM provider
+2. Provider API key, unless you are using Vercel AI Gateway via `AI_GATEWAY_API_KEY`
+3. Model ID
+4. Commerce Layer account name
+5. Commerce Layer endpoint
+6. Auth mode: `client` or `token`
+7. Optional scope
 
-## Configuration
+## Example Prompts
 
-Config is stored at `~/.config/cl-agent/config.json` (mode 0600).
+- `Show the latest 10 orders for the active account`
+- `Find customers whose email contains example.com`
+- `Look up a SKU by code and show its inventory models`
+- `Cancel order abc123 if it is still pending`
+- `Search the Commerce Layer docs for market scopes`
 
-```json
-{
-  "provider": "anthropic",
-  "model": "claude-sonnet-4-5-20250929",
-  "providers": {
-    "anthropic": { "apiKey": "sk-ant-..." },
-    "openai": { "apiKey": "sk-..." },
-    "openrouter": { "apiKey": "sk-or-..." }
-  },
-  "activeAccount": "production",
-  "accounts": {
-    "production": {
-      "baseEndpoint": "https://myorg.commercelayer.io",
-      "clientId": "...",
-      "clientSecret": "..."
-    },
-    "staging": {
-      "baseEndpoint": "https://myorg-staging.commercelayer.io",
-      "clientId": "...",
-      "scope": "market:id:xYZkjABcde"
-    }
-  },
-  "mcpServers": {}
-}
-```
-
-## Commands
+## Slash Commands
 
 | Command | Description |
 |---|---|
-| `/provider` | Switch LLM provider (interactive menu) |
-| `/model <id>` | Set model ID |
-| `/models` | List suggested models for current provider |
-| `/account` | Manage CL accounts (add/switch/remove) |
-| `/key <apiKey>` | Set API key for current provider |
-| `/settings` | Open settings view |
-| `/config` | Show current config (secrets redacted) |
-| `/clear` | Clear chat history |
-| `/help` | Show all commands |
-| `/quit` | Exit |
+| `/help` | Show the available commands |
+| `/model <id>` | Set the current model. With no argument, opens settings |
+| `/models` | List suggested models for the active provider |
+| `/account` / `/accounts` | Open the account manager |
+| `/provider` / `/settings` | Open provider and model settings |
+| `/key <apiKey>` | Set the API key for the active provider |
+| `/config` | Print the current config with secrets redacted |
+| `/docs [on\|off]` | Toggle Commerce Layer docs semantic search |
+| `/clear` | Clear the current chat session |
+| `/quit` / `/exit` | Exit the app |
 
 ## Keyboard Shortcuts
 
 | Key | Action |
 |---|---|
 | `Ctrl+P` | Open provider settings |
-| `Ctrl+A` | Open account manager |
-| `Ctrl+C` | Exit |
+| `Ctrl+A` | Open the account manager |
+| `Esc` | Go back from settings or account management views |
+| `Ctrl+C` | Exit the process |
+
+## Configuration
+
+Configuration is saved at:
+
+- `$XDG_CONFIG_HOME/cl-agent/config.json` when `XDG_CONFIG_HOME` is set
+- `~/.config/cl-agent/config.json` otherwise
+
+The file is written with mode `0600`.
+
+Example:
+
+```json
+{
+  "provider": "anthropic",
+  "model": "claude-sonnet-4-5-20250929",
+  "providers": {
+    "anthropic": {
+      "apiKey": "sk-ant-..."
+    },
+    "vercel": {
+      "apiKey": "...optional when AI_GATEWAY_API_KEY is set..."
+    },
+    "nvidia": {
+      "apiKey": "nvapi-...",
+      "baseURL": "https://integrate.api.nvidia.com/v1"
+    }
+  },
+  "activeAccount": "default",
+  "accounts": {
+    "default": {
+      "baseEndpoint": "https://your-org.commercelayer.io",
+      "clientId": "...",
+      "clientSecret": "...",
+      "scope": "market:id:xYZkjABcde"
+    }
+  },
+  "mcpServers": {},
+  "docsAskEnabled": false
+}
+```
+
+Notes:
+
+- `providers.<name>.model` is stored per provider so switching providers can restore the last model used for that provider
+- `providers.<name>.baseURL` is optional for providers that support custom endpoints
+- New configs default `docsAskEnabled` to `false`, which keeps docs lookup on the faster keyword-based path until you enable semantic `?ask=` mode
+- Accounts can use either OAuth client credentials or a raw access token
 
 ## MCP Server Support
 
-Add external MCP servers to your config:
+You can attach MCP servers through config and have their tools merged into the same agent session.
 
 ```json
 {
@@ -100,53 +152,70 @@ Add external MCP servers to your config:
     "commerce-layer": {
       "command": "npx",
       "args": ["@commercelayer/mcp-server"],
-      "env": { "CL_ACCESS_TOKEN": "..." }
+      "env": {
+        "CL_ACCESS_TOKEN": "..."
+      }
     },
     "custom": {
-      "url": "https://my-mcp-server.com/mcp"
+      "url": "https://my-mcp-server.example.com/mcp"
     }
   }
 }
 ```
 
-MCP tools are merged with built-in tools. On name conflicts, MCP tools take precedence.
+The CLI supports both stdio and SSE MCP servers. Destructive MCP tools are wrapped with the same confirmation flow used by built-in Commerce Layer mutations.
 
-## AI Providers
+## Safety And Security
 
-| Provider | Package | Notes |
-|---|---|---|
-| Anthropic | `@ai-sdk/anthropic` | Claude models |
-| OpenAI | `@ai-sdk/openai` | GPT models |
-| Google | `@ai-sdk/google` | Gemini models |
-| OpenRouter | `@openrouter/ai-sdk-provider` | Multi-provider gateway |
-| Vercel AI Gateway | `@ai-sdk/gateway` | Vercel managed gateway |
-
-## Debug Logging
-
-Set `CL_AGENT_DEBUG=1` to enable debug logging to `~/.config/cl-agent/debug.log`:
-
-```bash
-CL_AGENT_DEBUG=1 cl-agent
-```
+- Mutating actions require explicit confirmation before execution
+- API keys, access tokens, and client secrets are redacted in user-visible config output
+- Non-`*.commercelayer.io` endpoints are blocked unless an account opts into `allowCustomEndpoint`
+- OAuth tokens are cached in memory only, with bounded lifetime and concurrent refresh deduplication
+- MCP subprocesses receive an allowlisted environment rather than the full process environment
+- Auth failures and unhandled errors are sanitized before they are logged or displayed
 
 ## Development
+
+Clone and run locally:
 
 ```bash
 git clone https://github.com/alisonjsilva/cl-agent-cli.git
 cd cl-agent-cli
-npm install
+pnpm install
 npm run build
-node build/index.js
+npm start
 ```
 
-## Standalone Binary
+Available scripts:
 
-With [Bun](https://bun.sh) installed:
+```bash
+npm run build        # TypeScript compile and make build/index.js executable
+npm run dev          # Watch mode for TypeScript
+npm start            # Run the built CLI
+npm run compile      # Bun standalone binary build
+```
+
+Standalone binary:
 
 ```bash
 npm run compile
 ./cl-agent
 ```
+
+There is currently no dedicated test runner or linter in the repository, so `npm run build` is the main validation step.
+
+## Project Layout
+
+- `src/ai/` agent loop, provider wiring, and system prompt
+- `src/config/` persisted config schema and storage
+- `src/tools/` Commerce Layer, docs, and MCP tool registration
+- `src/views/` full-screen Ink views for chat, settings, accounts, and setup
+- `src/components/` reusable terminal UI components
+- `src/hooks/` app state and keyboard shortcuts
+
+## Contributing
+
+Issues and pull requests are welcome. Keep changes focused, preserve the confirmation and secret-redaction safeguards, and run `npm run build` before opening a PR.
 
 ## License
 

@@ -6,7 +6,7 @@
 npm run build        # tsc + chmod 755 build/index.js
 npm run dev          # tsc --watch
 npm start            # node build/index.js
-npm run compile      # bun compile to standalone binary
+npm run compile      # bun build --compile to standalone binary
 ```
 
 No test runner or linter is configured.
@@ -21,7 +21,7 @@ This is an **Ink-based terminal UI** (React rendered to the terminal) that lets 
 
 - **Config** (`src/config/`): Loads/saves `~/.config/cl-agent/config.json` (mode 0600). `ConfigProvider` context exposes `{ cfg, update }` to the tree. `update` persists to disk.
 - **AI** (`src/ai/`): `Agent` class wraps `streamText()` with message history, tool deduplication, and max 10 steps per request. `createModel()` returns a provider-specific model instance. The system prompt is hardened against prompt injection.
-- **Tools** (`src/tools/`): Registry merges built-in CL tools + MCP server tools. CL tools use `clFetch()` for JSON:API calls with auto-retry on 429/5xx. Mutations require user confirmation via `requireConfirm()`.
+- **Tools** (`src/tools/`): Registry always exposes Commerce Layer docs search, then merges built-in CL tools + MCP server tools. CL tools use `clFetch()` for JSON:API calls with auto-retry on 429/5xx. Mutations require user confirmation via `requireConfirm()`.
 - **Views** (`src/views/`): Full-screen UIs — ChatView, SetupWizard, SettingsView, AccountManager. Navigation via `useRouter` hook (simple state-based routing).
 - **Components** (`src/components/`): Reusable Ink components — InputBar, ChatMessage, ConfirmDialog, HeaderBar, EnvBadge, RichText.
 - **Hooks** (`src/hooks/`): `useAgent` (agent lifecycle + chat state), `useConfig` (context), `useRouter` (view navigation), `useKeybindings` (Ctrl+P/A shortcuts).
@@ -61,6 +61,8 @@ tool({
 - `clFetch(account, path, options)` handles OAuth tokens (cached with 60-sec expiry buffer), auto-retry, and JSON:API response formatting.
 - Filtering uses Commerce Layer's ransack-style syntax (`_eq`, `_cont` suffixes).
 - Pagination: `page_size` 1–25, `page_number`. Default sort: `-created_at`.
+- Provider configs also support optional `baseURL` overrides.
+- `docsAskEnabled` controls whether docs lookup uses semantic `?ask=` mode or the fast keyword fallback.
 
 ### Naming
 
@@ -91,3 +93,14 @@ tool({
 ### Slash commands
 
 Commands are parsed in `handleCommand()` in `app.tsx`. Pattern: `/command [args...]`. Commands either mutate config (and persist), navigate to a view, or append info entries to chat history.
+
+- `/help`
+- `/model <id>`
+- `/models`
+- `/account` and `/accounts`
+- `/provider` and `/settings`
+- `/key <apiKey>`
+- `/config`
+- `/docs [on|off]`
+- `/clear`
+- `/quit` and `/exit`
