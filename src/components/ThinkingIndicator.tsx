@@ -14,6 +14,7 @@ export const ThinkingIndicator: React.FC = () => {
 
   const spinner = SPINNER_FRAMES[tick % SPINNER_FRAMES.length]!;
   const dots = ".".repeat(tick % 4);
+  const pad = " ".repeat(3 - (tick % 4));
   const elapsed = Math.floor((Date.now() - startTime.current) / 1000);
 
   const formatTime = (s: number) => {
@@ -24,7 +25,7 @@ export const ThinkingIndicator: React.FC = () => {
   return (
     <Box marginTop={1} paddingLeft={2} gap={1}>
       <Text color="yellow">{spinner}</Text>
-      <Text color="yellow">Thinking{dots}</Text>
+      <Text color="yellow">Thinking{dots}{pad}</Text>
       {elapsed > 0 && <Text dimColor>{formatTime(elapsed)}</Text>}
     </Box>
   );

@@ -44,7 +44,7 @@ export interface AgentOptions {
   maxSteps?: number;
 }
 
-type LLMErrorKind = "rate_limit" | "context_overflow" | "auth" | "network" | "timeout" | "fatal";
+type LLMErrorKind = "rate_limit" | "context_overflow" | "auth" | "network" | "timeout" | "cancelled" | "fatal";
 
 interface ErrorDigest {
   kind: LLMErrorKind;
@@ -82,6 +82,10 @@ function digestError(err: unknown): ErrorDigest {
   const { statusCode, message, responseBody } = unwrapError(err);
   const providerMessage = extractProviderMessage(responseBody);
   const lower = (message + " " + (providerMessage ?? "")).toLowerCase();
+
+  if (lower.includes("cancelled by user")) {
+    return { kind: "cancelled" };
+  }
 
   if (statusCode === 429 || lower.includes("rate limit") || lower.includes("rate-limited") ||
       lower.includes("too many requests")) {
@@ -137,6 +141,8 @@ function friendlyErrorMessage(digest: ErrorDigest): string {
       return "Authentication failed. Check your API key with /key or /provider.";
     case "timeout":
       return "Request timed out. The model may not support tool calling, or the provider is unresponsive. Try a different model with /model.";
+    case "cancelled":
+      return "Cancelled.";
     case "network": {
       const code = digest.statusCode ? ` (${digest.statusCode})` : "";
       return hint
@@ -159,6 +165,7 @@ export class Agent {
   private callSignatures = new Set<string>();
   private stats: SessionStats;
   private activeSkillContext: string | undefined;
+  private abortController: AbortController | null = null;
   opts: AgentOptions;
 
   constructor(opts: AgentOptions) {
@@ -173,6 +180,10 @@ export class Agent {
       sessionStartedAt: Date.now(),
       lastRunMs: 0,
     };
+  }
+
+  abort(): void {
+    this.abortController?.abort(new Error("Cancelled by user"));
   }
 
   getMessages(): ModelMessage[] {
@@ -256,6 +267,12 @@ export class Agent {
     const maxSteps = this.opts.maxSteps ?? DEFAULT_MAX_STEPS;
 
     for (let step = 0; step < maxSteps; step++) {
+      if (this.abortController?.signal.aborted) {
+        this.stats.lastRunMs = Date.now() - runStart;
+        this.opts.emit({ type: "done" });
+        this.opts.emit({ type: "stats", stats: this.getStats() });
+        return;
+      }
       const needsMore = await this.executeStep();
       if (!needsMore) {
         this.stats.lastRunMs = Date.now() - runStart;
@@ -272,9 +289,9 @@ export class Agent {
     let lastError: unknown = null;
 
     for (let attempt = 0; attempt <= LLM_MAX_RETRIES; attempt++) {
-      const abortController = new AbortController();
+      this.abortController = new AbortController();
       const stepTimeout = setTimeout(
-        () => abortController.abort(new Error("LLM request timed out")),
+        () => this.abortController?.abort(new Error("LLM request timed out")),
         LLM_REQUEST_TIMEOUT_MS,
       );
 
@@ -292,7 +309,7 @@ export class Agent {
           system: buildSystemPrompt(this.activeSkillContext),
           messages: this.messages,
           tools: this.opts.tools,
-          abortSignal: abortController.signal,
+          abortSignal: this.abortController.signal,
           maxRetries: 0,
         });
 

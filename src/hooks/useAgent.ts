@@ -143,5 +143,9 @@ export function useAgent(cfg: Config, tools: ToolSet) {
     agentRef.current?.clearHistory();
   }, []);
 
-  return { entries, busy, streamingText, sessionStats, send, clear, append };
+  const cancel = useCallback(() => {
+    agentRef.current?.abort();
+  }, []);
+
+  return { entries, busy, streamingText, sessionStats, send, clear, append, cancel };
 }

@@ -87,7 +87,7 @@ const AppInner: React.FC = () => {
     loadTools(cfg);
   }, [cfg, account, loadTools]);
 
-  const { entries, busy, streamingText, sessionStats, send, clear, append } = useAgent(cfg, tools);
+  const { entries, busy, streamingText, sessionStats, send, clear, append, cancel } = useAgent(cfg, tools);
 
   const [input, setInput] = useState("");
   const env = account ? detectEnvironment(account) : "unknown";
@@ -130,16 +130,14 @@ const AppInner: React.FC = () => {
         append({
           kind: "info",
           text: `Commands:
-  /provider          Switch LLM provider
   /model <id>        Set model
   /models            List suggested models
-  /account           Manage CL accounts
-  /accounts          List CL accounts
+  /accounts          Manage CL accounts
   /key <apiKey>      Set API key for current provider
-  /settings          Open settings
+  /settings          Open settings (provider, model, etc.)
   /config            Show config (redacted)
   /clear             Clear chat
-  /quit | /exit      Quit`,
+  /quit              Quit`,
         });
         break;
 
@@ -292,6 +290,8 @@ const AppInner: React.FC = () => {
         value={input}
         onChange={setInput}
         onSubmit={stableSubmit}
+        onCancel={cancel}
+        busy={busy}
         disabled={!!pendingConfirm}
         placeholder={
           pendingConfirmationWord
