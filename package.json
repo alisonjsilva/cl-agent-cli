@@ -4,7 +4,8 @@
   "description": "Interactive CLI agent for Commerce Layer — bring your own LLM provider.",
   "type": "module",
   "bin": {
-    "cl-agent": "build/index.js"
+    "cl-agent": "build/index.js",
+    "cl-agent-cli": "build/index.js"
   },
   "scripts": {
     "build": "tsc && chmod 755 build/index.js",
@@ -13,7 +14,7 @@
     "compile": "bun build src/index.tsx --compile --outfile cl-agent --target node"
   },
   "files": [
-    "build"
+    "build/**/*.js"
   ],
   "engines": {
     "node": ">=20"
