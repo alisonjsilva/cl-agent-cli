@@ -19,7 +19,7 @@ export async function buildToolRegistry(
   let tools: ToolSet = {};
 
   // Docs search is always available, regardless of account configuration.
-  // Sync the ?ask= flag from config so it's correct from the first tool call.
+  // Sync the MCP-search flag from config so it's correct from the first tool call.
   setDocsAskEnabled(cfg.docsAskEnabled !== false);
   tools = { ...tools, ...createDocsTools() };
 

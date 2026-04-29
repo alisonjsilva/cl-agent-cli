@@ -137,7 +137,7 @@ const AppInner: React.FC = () => {
   /key <apiKey>      Set API key for current provider
   /settings          Open settings (provider, model, etc.)
   /config            Show config (redacted)
-  /docs [on|off]     Toggle docs ?ask= semantic search (default: on)
+  /docs [on|off]     Toggle docs MCP semantic search (default: on)
   /clear             Clear chat
   /quit              Quit`,
         });
@@ -213,8 +213,8 @@ const AppInner: React.FC = () => {
         append({
           kind: "info",
           text: next
-            ? "Docs ?ask= ON — semantic search active (20 s timeout, then keyword fallback)."
-            : "Docs ?ask= OFF — using fast keyword index search only (~2–5 s).",
+            ? "Docs MCP ON — semantic search via official Commerce Layer docs MCP server."
+            : "Docs MCP OFF — using local keyword/URL fallback only.",
         });
         break;
       }

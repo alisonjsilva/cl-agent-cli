@@ -359,7 +359,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
       : "not set";
 
   const askEnabled = cfg.docsAskEnabled !== false;
-  const docsLabel = `Toggle Docs ?ask= Search  [${askEnabled ? "ON  — semantic, ~20 s" : "OFF — keyword, ~3 s "}]`;
+  const docsLabel = `Toggle Docs MCP Search  [${askEnabled ? "ON  — semantic via MCP" : "OFF — local fallback   "}]`;
 
   return (
     <Box flexDirection="column" padding={1}>
@@ -398,8 +398,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onBack }) => {
               await update({ ...cfg, docsAskEnabled: next });
               setMessage(
                 next
-                  ? "Docs ?ask= ON — semantic search, 20 s timeout + keyword fallback."
-                  : "Docs ?ask= OFF — fast keyword index only (~2–5 s).",
+                  ? "Docs MCP ON — semantic search via official Commerce Layer docs MCP server."
+                  : "Docs MCP OFF — using local keyword/URL fallback only.",
               );
             } else {
               setStep(value as SettingsStep);

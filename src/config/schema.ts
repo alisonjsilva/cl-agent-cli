@@ -87,10 +87,11 @@ export interface Config {
   accounts: Record<string, CLAccount>;
   mcpServers: Record<string, MCPServerConfig>;
   /**
-   * When true (default), cl_search_docs first tries the ?ask= semantic
-   * endpoint which returns a pre-distilled answer (~150 tokens). Falls back
-   * to keyword index search if the endpoint times out (>20 s).
-   * Set to false to always use the fast keyword fallback (~2–5 s, ~2000 tokens).
+   * When true (default), cl_search_docs uses the official Commerce Layer
+   * docs MCP server (https://docs.commercelayer.io/~gitbook/mcp) for
+   * semantic search. Falls back to local keyword/URL-construction search
+   * if the MCP is unreachable. Set to false to skip MCP and always use the
+   * local fallback (faster cold start, lower-quality results).
    */
   docsAskEnabled?: boolean;
 }
@@ -109,5 +110,5 @@ export const DEFAULT_CONFIG: Config = {
   activeAccount: null,
   accounts: {},
   mcpServers: {},
-  docsAskEnabled: false,
+  docsAskEnabled: true,
 };
