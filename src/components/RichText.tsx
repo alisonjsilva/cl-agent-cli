@@ -157,75 +157,162 @@ function extractTableBlocks(
   return blocks;
 }
 
+function wrapCell(text: string, width: number): string[] {
+  if (width <= 0) return [text];
+  const out: string[] = [];
+  // Split on existing newlines first, then wrap each segment
+  for (const segment of text.split(/\n/)) {
+    if (segment.length === 0) {
+      out.push("");
+      continue;
+    }
+    const words = segment.split(/\s+/);
+    let line = "";
+    for (const word of words) {
+      // If a single word is longer than width, hard-break it
+      if (word.length > width) {
+        if (line) {
+          out.push(line);
+          line = "";
+        }
+        let rest = word;
+        while (rest.length > width) {
+          out.push(rest.slice(0, width));
+          rest = rest.slice(width);
+        }
+        line = rest;
+        continue;
+      }
+      const candidate = line ? `${line} ${word}` : word;
+      if (candidate.length > width) {
+        out.push(line);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    }
+    if (line) out.push(line);
+  }
+  return out.length > 0 ? out : [""];
+}
+
+function computeColumnWidths(
+  rows: string[][],
+  colCount: number,
+  available: number,
+): number[] {
+  // Natural width = max content length per column
+  const natural: number[] = [];
+  for (let c = 0; c < colCount; c++) {
+    let max = 1;
+    for (const row of rows) {
+      max = Math.max(max, (row[c] ?? "").length);
+    }
+    natural.push(max);
+  }
+
+  // Overhead: "│ " before first col, " │ " between cols, " │" after last
+  const overhead = 2 + (colCount - 1) * 3 + 2;
+  const budget = Math.max(colCount * 6, available - overhead);
+  const totalNatural = natural.reduce((a, b) => a + b, 0);
+
+  // If it fits, use natural widths
+  if (totalNatural <= budget) return natural;
+
+  // Minimum width per column = max longest word (so words don't hard-break), floor 6
+  const minWidths = natural.map((_, c) => {
+    let longest = 6;
+    for (const row of rows) {
+      for (const word of (row[c] ?? "").split(/\s+/)) {
+        longest = Math.max(longest, word.length);
+      }
+    }
+    return Math.min(longest, natural[c]!);
+  });
+
+  // Start with natural widths and shrink the widest columns first
+  const widths = [...natural];
+  let total = totalNatural;
+
+  while (total > budget) {
+    // Find the widest column that's still above its minimum
+    let maxIdx = -1;
+    let maxW = 0;
+    for (let c = 0; c < colCount; c++) {
+      if (widths[c]! > minWidths[c]! && widths[c]! > maxW) {
+        maxW = widths[c]!;
+        maxIdx = c;
+      }
+    }
+    if (maxIdx === -1) break; // all at minimum
+    widths[maxIdx]!--;
+    total--;
+  }
+
+  return widths;
+}
+
 const RichTable: React.FC<{ table: ParsedTable }> = ({ table }) => {
   const allRows = [table.headers, ...table.rows];
   const colCount = Math.max(...allRows.map((r) => r.length));
 
-  // Compute max width per column
-  const colWidths: number[] = [];
-  for (let c = 0; c < colCount; c++) {
-    let max = 0;
-    for (const row of allRows) {
-      const cell = row[c] ?? "";
-      max = Math.max(max, cell.length);
+  // Available terminal width (fall back to 80)
+  const termWidth =
+    typeof process !== "undefined" && process.stdout && process.stdout.columns
+      ? process.stdout.columns
+      : 80;
+  // Subtract leading "  " indent and a small safety margin
+  const available = Math.max(20, termWidth - 6);
+
+  const colWidths = computeColumnWidths(allRows, colCount, available);
+
+  const buildRowLines = (cells: string[]): string[] => {
+    const wrapped: string[][] = [];
+    for (let c = 0; c < colCount; c++) {
+      wrapped.push(wrapCell(cells[c] ?? "", colWidths[c]!));
     }
-    colWidths.push(max);
-  }
-
-  const padCell = (text: string, col: number) =>
-    text + " ".repeat(Math.max(0, (colWidths[col] ?? 0) - text.length));
-
-  const renderRow = (cells: string[], key: string, isHeader: boolean) => (
-    <Box key={key}>
-      <Text dimColor>{"  "}</Text>
-      {cells.map((cell, c) => (
-        <React.Fragment key={c}>
-          {c === 0 && <Text dimColor>│ </Text>}
-          {isHeader ? (
-            <Text bold>{padCell(cell, c)}</Text>
-          ) : (
-            <InlineRich text={padCell(cell, c)} />
-          )}
-          <Text dimColor> │{c < cells.length - 1 ? " " : ""}</Text>
-        </React.Fragment>
-      ))}
-    </Box>
-  );
-
-  const separator = (key: string) => {
-    const line = colWidths.map((w) => "─".repeat(w + 2)).join("┼");
-    return (
-      <Box key={key}>
-        <Text dimColor>{"  ├"}{line}{"┤"}</Text>
-      </Box>
-    );
+    const height = Math.max(...wrapped.map((w) => w.length));
+    const lines: string[] = [];
+    for (let h = 0; h < height; h++) {
+      const parts: string[] = [];
+      for (let c = 0; c < colCount; c++) {
+        const raw = wrapped[c]![h] ?? "";
+        const padded = raw + " ".repeat(Math.max(0, colWidths[c]! - raw.length));
+        parts.push(padded);
+      }
+      lines.push("│ " + parts.join(" │ ") + " │");
+    }
+    return lines;
   };
 
-  const topBorder = () => {
-    const line = colWidths.map((w) => "─".repeat(w + 2)).join("┬");
-    return (
-      <Box key="top">
-        <Text dimColor>{"  ┌"}{line}{"┐"}</Text>
-      </Box>
-    );
+  const buildBorder = (left: string, mid: string, right: string): string => {
+    const segs = colWidths.map((w) => "─".repeat(w + 2)).join(mid);
+    return left + segs + right;
   };
 
-  const bottomBorder = () => {
-    const line = colWidths.map((w) => "─".repeat(w + 2)).join("┴");
-    return (
-      <Box key="bottom">
-        <Text dimColor>{"  └"}{line}{"┘"}</Text>
-      </Box>
-    );
-  };
+  const headerLines = buildRowLines(table.headers);
+  const bodyRowsLines = table.rows.map(buildRowLines);
+  const rowSep = buildBorder("├", "┼", "┤");
+
+  const bodyElements: React.ReactNode[] = [];
+  bodyRowsLines.forEach((lines, ri) => {
+    if (ri > 0) {
+      bodyElements.push(<Text key={`sep-${ri}`} dimColor>{"  "}{rowSep}</Text>);
+    }
+    lines.forEach((line, li) => {
+      bodyElements.push(<Text key={`r${ri}-${li}`}>{"  "}{line}</Text>);
+    });
+  });
 
   return (
     <Box flexDirection="column">
-      {topBorder()}
-      {renderRow(table.headers, "header", true)}
-      {separator("sep")}
-      {table.rows.map((row, i) => renderRow(row, `row-${i}`, false))}
-      {bottomBorder()}
+      <Text dimColor>{"  "}{buildBorder("┌", "┬", "┐")}</Text>
+      {headerLines.map((line, i) => (
+        <Text key={`h-${i}`} bold>{"  "}{line}</Text>
+      ))}
+      <Text dimColor>{"  "}{buildBorder("╞", "╪", "╡")}</Text>
+      {bodyElements}
+      <Text dimColor>{"  "}{buildBorder("└", "┴", "┘")}</Text>
     </Box>
   );
 };
