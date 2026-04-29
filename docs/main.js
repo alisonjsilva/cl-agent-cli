@@ -1,12 +1,20 @@
+import { RELEASE_METADATA } from "./release-meta.js";
+
 // ============================================================
 // cl-agent landing page — hero grid canvas, terminal typer, copy
 // ============================================================
 
+const APP_VERSION = RELEASE_METADATA.version;
+
 /* ------------------------------------------------------------
-   Year in footer
+  Year in footer + release label
 ------------------------------------------------------------ */
 const yearEl = document.getElementById("year");
 if (yearEl) yearEl.textContent = String(new Date().getFullYear());
+
+document.querySelectorAll("[data-app-version]").forEach((el) => {
+  el.textContent = APP_VERSION;
+});
 
 /* ------------------------------------------------------------
    Copy buttons
@@ -156,7 +164,7 @@ document.querySelectorAll("[data-copy]").forEach((btn) => {
   // Scripted “session”. Each step is either typed input or
   // streamed/instant output with optional class for coloring.
   const steps = [
-    { type: "line", cls: "t-info", text: "cl-agent v0.1.0  ·  active account: production  ·  model: claude-sonnet-4.5" },
+    { type: "line", cls: "t-info", text: `cl-agent v${APP_VERSION}  ·  active account: production  ·  model: claude-sonnet-4.5` },
     { type: "line", cls: "t-info", text: "Type a question, /help for commands.\n" },
     { type: "prompt" },
     { type: "type",   text: "Show the latest 3 orders for the active account", speed: 22 },

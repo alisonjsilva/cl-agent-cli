@@ -597,6 +597,8 @@ button {
     0 30px 60px -30px rgba(0, 0, 0, 0.8),
     inset 0 0 0 1px rgba(255, 255, 255, 0.02);
   overflow: hidden;
+  pointer-events: none;
+  user-select: none;
   font-family: var(--font-mono);
   font-size: 13.5px;
   line-height: 1.6;
@@ -634,11 +636,17 @@ button {
   padding: 22px 22px 60px;
   height: clamp(420px, 58vh, 680px);
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
+  scrollbar-width: none;
   scrollbar-gutter: stable;
   color: var(--text);
   background:
     repeating-linear-gradient(180deg, transparent 0 22px, rgba(255, 255, 255, 0.01) 22px 23px);
+}
+
+.terminal-body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 #terminal-pre {

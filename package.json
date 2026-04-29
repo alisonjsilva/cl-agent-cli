@@ -8,7 +8,8 @@
     "cl-agent-cli": "build/index.js"
   },
   "scripts": {
-    "build": "tsc && chmod 755 build/index.js",
+    "release:meta": "node scripts/generate-release-meta.mjs",
+    "build": "npm run release:meta && tsc && chmod 755 build/index.js",
     "dev": "tsc --watch",
     "start": "node build/index.js",
     "compile": "bun build src/index.tsx --compile --outfile cl-agent --target node"

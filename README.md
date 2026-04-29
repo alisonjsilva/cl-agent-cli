@@ -6,7 +6,7 @@ Open-source terminal agent for [Commerce Layer](https://commercelayer.io). It gi
 
 - Multi-provider LLM support: Anthropic, OpenAI, Google, OpenRouter, Vercel AI Gateway, and NVIDIA NIM
 - Built-in Commerce Layer tools for listing, searching, and mutating resources
-- Built-in Commerce Layer docs lookup, with optional semantic `?ask=` mode
+- Built-in Commerce Layer docs search via the official docs MCP server, with a local fallback when the MCP is unavailable
 - Multi-account setup for production, staging, and test environments
 - Local-first config stored on disk with secret redaction in UI output
 - Optional MCP servers for extending the agent with external tools
@@ -81,7 +81,7 @@ On first run the setup wizard asks for:
 | `/provider` / `/settings` | Open provider and model settings |
 | `/key <apiKey>` | Set the API key for the active provider |
 | `/config` | Print the current config with secrets redacted |
-| `/docs [on\|off]` | Toggle Commerce Layer docs semantic search |
+| `/docs [on\|off]` | Toggle Commerce Layer docs MCP semantic search (default: on) |
 | `/clear` | Clear the current chat session |
 | `/quit` / `/exit` | Exit the app |
 
@@ -131,7 +131,7 @@ Example:
     }
   },
   "mcpServers": {},
-  "docsAskEnabled": false
+  "docsAskEnabled": true
 }
 ```
 
@@ -139,7 +139,7 @@ Notes:
 
 - `providers.<name>.model` is stored per provider so switching providers can restore the last model used for that provider
 - `providers.<name>.baseURL` is optional for providers that support custom endpoints
-- New configs default `docsAskEnabled` to `false`, which keeps docs lookup on the faster keyword-based path until you enable semantic `?ask=` mode
+- New configs default `docsAskEnabled` to `true`, which enables semantic search through the official Commerce Layer docs MCP server and falls back to local keyword search if the MCP is unreachable
 - Accounts can use either OAuth client credentials or a raw access token
 
 ## MCP Server Support

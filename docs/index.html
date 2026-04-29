@@ -9,13 +9,13 @@
     <title>cl-agent — An AI agent for Commerce Layer, right in your terminal</title>
     <meta
       name="description"
-      content="An open-source AI agent that operates Commerce Layer from your terminal. Ask in natural language, review every action before it runs. Bring your own LLM."
+      content="An open-source AI agent for Commerce Layer in your terminal. Built-in docs search, multi-account workflows, and explicit confirmation before every mutation. Bring your own LLM."
     />
 
     <meta property="og:title" content="cl-agent — An AI agent for Commerce Layer, right in your terminal" />
     <meta
       property="og:description"
-      content="Open-source AI terminal agent for Commerce Layer. Natural language in, real API actions out — always with your confirmation. Bring your own LLM."
+      content="Open-source AI terminal agent for Commerce Layer. Natural language in, real API actions out, with built-in docs search, multi-account workflows, and explicit confirmation before every mutation."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://alisonjsilva.github.io/cl-agent-cli/" />
@@ -64,7 +64,7 @@
         <div class="hero-inner">
           <div class="badge">
             <span class="badge-dot"></span>
-            Open-source community project · v0.1
+            Open-source community project · release <span data-app-version></span>
           </div>
 
           <h1 class="hero-title">
@@ -74,8 +74,8 @@
 
           <p class="hero-sub">
             Ask in natural language. The agent reads, searches, and operates your
-            Commerce Layer store — but every mutation requires your explicit
-            confirmation before it runs. Local-first, bring your own LLM.
+            Commerce Layer data with built-in docs lookup, multiple account profiles,
+            and explicit confirmation before every mutation. Local-first, bring your own LLM.
           </p>
 
           <div class="hero-cta">
@@ -149,7 +149,7 @@
               </svg>
             </div>
             <h3>Multi-provider LLMs</h3>
-            <p>Anthropic, OpenAI, Google, OpenRouter, Vercel AI Gateway, and NVIDIA NIM. Switch with a slash command.</p>
+            <p>Anthropic, OpenAI, Google, OpenRouter, Vercel AI Gateway, and NVIDIA NIM. Each provider keeps its own saved model, and supported providers can use custom base URLs.</p>
           </article>
 
           <article class="feature">
@@ -182,7 +182,7 @@
               </svg>
             </div>
             <h3>Docs lookup, on demand</h3>
-            <p>Built-in Commerce Layer docs search with optional semantic <code>?ask=</code> mode for deeper answers.</p>
+            <p>Built-in Commerce Layer docs search uses the official docs MCP server by default and falls back to fast local keyword lookup when the MCP is unavailable.</p>
           </article>
 
           <article class="feature">
@@ -195,7 +195,7 @@
               </svg>
             </div>
             <h3>Multi-account workflow</h3>
-            <p>Production, staging, and test in one place. Border colors warn you when you’re about to touch live data.</p>
+            <p>Production, staging, and test in one place. Dedicated account management and environment badges warn you when you’re about to touch live data.</p>
           </article>
 
           <article class="feature">
@@ -206,7 +206,7 @@
               </svg>
             </div>
             <h3>MCP server support</h3>
-            <p>Plug in stdio or SSE MCP servers and use their tools alongside built-in ones — destructive tools auto-wrapped.</p>
+            <p>Plug in stdio or SSE MCP servers and use their tools alongside built-in ones. Destructive tools get wrapped in the same confirmation flow.</p>
           </article>
         </div>
       </section>
@@ -276,8 +276,8 @@
         </div>
 
         <p class="install-hint">
-          On first run, a setup wizard walks you through the LLM provider, model, and your
-          first Commerce Layer account.
+          On first run, a setup wizard walks you through the provider key or <code>AI_GATEWAY_API_KEY</code>,
+          model selection, and your first Commerce Layer account using client credentials or a raw access token.
         </p>
       </section>
 
@@ -291,6 +291,7 @@
               <li>Config stored locally with <code>0600</code> permissions.</li>
               <li>Endpoints outside <code>*.commercelayer.io</code> blocked unless explicitly allowed.</li>
               <li>OAuth tokens cached in memory only, with bounded lifetimes.</li>
+              <li>MCP subprocesses receive an allowlisted environment instead of your full shell env.</li>
               <li>API calls and auth requests rate-limited.</li>
               <li>Secrets stripped from any logged or displayed error.</li>
             </ul>
