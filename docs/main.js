@@ -1,8 +1,6 @@
 // ============================================================
-// cl-agent landing page — hero 3D scene, terminal typer, copy
+// cl-agent landing page — hero grid canvas, terminal typer, copy
 // ============================================================
-
-import * as THREE from "three";
 
 /* ------------------------------------------------------------
    Year in footer
@@ -35,235 +33,115 @@ document.querySelectorAll("[data-copy]").forEach((btn) => {
 });
 
 /* ------------------------------------------------------------
-   Hero 3D scene — Three.js
-   A floating, glowing wireframe icosahedron + orbiting solid
-   inner sphere, surrounded by drifting particle field. Slowly
-   rotates, reacts to pointer movement, parallax-feel.
+   Hero background — lightweight 2D canvas dot-grid with a
+   subtle "pulse" wave that radiates from the center, evoking
+   a terminal cursor / data-flowing feel. No Three.js needed.
 ------------------------------------------------------------ */
-(function initHeroScene() {
+(function initHeroGrid() {
   const canvas = document.getElementById("hero-canvas");
   if (!canvas) return;
 
-  // Respect reduced-motion users.
   const prefersReducedMotion =
     window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (prefersReducedMotion) return;
 
-  const renderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: true,
-    alpha: true,
-    powerPreference: "high-performance",
-  });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
 
-  const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x050505, 0.06);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let w, h, cols, rows;
+  const gap = 36;          // spacing between dots (wider = fewer dots)
 
-  const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
-  camera.position.set(0, 0, 9);
-
-  // -----------------------------------------
-  // Group containing the main object cluster
-  // -----------------------------------------
-  const group = new THREE.Group();
-  scene.add(group);
-
-  // --- Glowing wireframe icosahedron (outer shell) ---
-  const icoGeo = new THREE.IcosahedronGeometry(2.4, 1);
-  const icoEdges = new THREE.EdgesGeometry(icoGeo);
-  const icoMat = new THREE.LineBasicMaterial({
-    color: 0xb794ff,
-    transparent: true,
-    opacity: 0.85,
-  });
-  const icoWire = new THREE.LineSegments(icoEdges, icoMat);
-  group.add(icoWire);
-
-  // Vertex points on the icosahedron — small glowing dots.
-  const pointsMat = new THREE.PointsMaterial({
-    color: 0xffffff,
-    size: 0.07,
-    transparent: true,
-    opacity: 0.9,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
-  const icoPoints = new THREE.Points(icoGeo, pointsMat);
-  group.add(icoPoints);
-
-  // --- Inner soft sphere (gradient look via simple shader) ---
-  const innerGeo = new THREE.SphereGeometry(1.2, 64, 64);
-  const innerMat = new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    uniforms: {
-      uTime: { value: 0 },
-      uColorA: { value: new THREE.Color(0x6ee7ff) },
-      uColorB: { value: new THREE.Color(0xb794ff) },
-      uColorC: { value: new THREE.Color(0xff8bd1) },
-    },
-    vertexShader: /* glsl */ `
-      varying vec3 vPos;
-      varying vec3 vNormal;
-      void main() {
-        vPos = position;
-        vNormal = normalize(normalMatrix * normal);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: /* glsl */ `
-      varying vec3 vPos;
-      varying vec3 vNormal;
-      uniform float uTime;
-      uniform vec3 uColorA;
-      uniform vec3 uColorB;
-      uniform vec3 uColorC;
-
-      void main() {
-        // Fresnel-style edge glow.
-        vec3 viewDir = normalize(cameraPosition);
-        float fres = pow(1.0 - max(dot(vNormal, vec3(0.0, 0.0, 1.0)), 0.0), 2.0);
-
-        // Mix colors based on position + time for slow shifting.
-        float t = 0.5 + 0.5 * sin(uTime * 0.4 + vPos.y * 1.5);
-        vec3 col = mix(uColorA, uColorB, t);
-        col = mix(col, uColorC, 0.5 + 0.5 * sin(uTime * 0.3 + vPos.x));
-
-        float alpha = fres * 0.85;
-        gl_FragColor = vec4(col, alpha);
-      }
-    `,
-  });
-  const innerSphere = new THREE.Mesh(innerGeo, innerMat);
-  group.add(innerSphere);
-
-  // --- Orbiting smaller geometry (torus knot) for visual interest ---
-  const knotGeo = new THREE.TorusKnotGeometry(0.45, 0.05, 96, 12, 2, 3);
-  const knotEdges = new THREE.EdgesGeometry(knotGeo);
-  const knotMat = new THREE.LineBasicMaterial({
-    color: 0x6ee7ff,
-    transparent: true,
-    opacity: 0.7,
-  });
-  const knot = new THREE.LineSegments(knotEdges, knotMat);
-  knot.position.set(3.4, 0.5, -0.5);
-  group.add(knot);
-
-  // --- Background drifting particle field ---
-  const particleCount = 900;
-  const particleGeo = new THREE.BufferGeometry();
-  const positions = new Float32Array(particleCount * 3);
-  const speeds = new Float32Array(particleCount);
-  for (let i = 0; i < particleCount; i++) {
-    positions[i * 3 + 0] = (Math.random() - 0.5) * 22;
-    positions[i * 3 + 1] = (Math.random() - 0.5) * 14;
-    positions[i * 3 + 2] = (Math.random() - 0.5) * 18 - 4;
-    speeds[i] = 0.2 + Math.random() * 0.8;
-  }
-  particleGeo.setAttribute(
-    "position",
-    new THREE.BufferAttribute(positions, 3)
-  );
-  const particleMat = new THREE.PointsMaterial({
-    color: 0xffffff,
-    size: 0.025,
-    transparent: true,
-    opacity: 0.6,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
-  const particles = new THREE.Points(particleGeo, particleMat);
-  scene.add(particles);
-
-  // --- Soft ambient + directional light (used by line shading subtly) ---
-  scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-
-  // -----------------------------------------
-  // Pointer parallax
-  // -----------------------------------------
-  const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
-  function onPointerMove(e) {
-    const x = (e.clientX / window.innerWidth) * 2 - 1;
-    const y = (e.clientY / window.innerHeight) * 2 - 1;
-    pointer.tx = x;
-    pointer.ty = y;
-  }
-  window.addEventListener("pointermove", onPointerMove, { passive: true });
-
-  // -----------------------------------------
-  // Resize
-  // -----------------------------------------
   function resize() {
     const parent = canvas.parentElement;
-    const w = parent ? parent.clientWidth : window.innerWidth;
-    const h = parent ? parent.clientHeight : window.innerHeight;
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
+    w = parent ? parent.clientWidth : window.innerWidth;
+    h = parent ? parent.clientHeight : window.innerHeight;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cols = Math.ceil(w / gap) + 1;
+    rows = Math.ceil(h / gap) + 1;
   }
   resize();
   window.addEventListener("resize", resize);
 
-  // -----------------------------------------
-  // Pause render when off-screen
-  // -----------------------------------------
+  // Pointer position for local highlight.
+  const pointer = { x: w / 2, y: h / 2, tx: w / 2, ty: h / 2 };
+  window.addEventListener("pointermove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    pointer.tx = e.clientX - rect.left;
+    pointer.ty = e.clientY - rect.top;
+  }, { passive: true });
+
+  // Pause render when off-screen.
   let isVisible = true;
   const io = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) isVisible = entry.isIntersecting;
-    },
+    (entries) => { for (const e of entries) isVisible = e.isIntersecting; },
     { threshold: 0.01 }
   );
   io.observe(canvas);
 
-  // -----------------------------------------
-  // Animate
-  // -----------------------------------------
-  const clock = new THREE.Clock();
-  function tick() {
-    const t = clock.getElapsedTime();
+  // Colors.
+  const baseColor = [183, 148, 255];  // --accent lavender
+  const cyanColor = [110, 231, 255];  // --accent-2
 
-    if (isVisible) {
-      // Smooth parallax follow.
-      pointer.x += (pointer.tx - pointer.x) * 0.04;
-      pointer.y += (pointer.ty - pointer.y) * 0.04;
+  let t0 = performance.now();
+  let lastFrame = 0;
+  const frameBudget = 50;  // ~20fps — slow wave doesn't need more
 
-      group.rotation.y = t * 0.18 + pointer.x * 0.5;
-      group.rotation.x = Math.sin(t * 0.25) * 0.15 + pointer.y * 0.25;
+  function draw(now) {
+    requestAnimationFrame(draw);
+    if (!isVisible) return;
+    if (now - lastFrame < frameBudget) return;
+    lastFrame = now;
 
-      // Counter-rotate the inner wireframe a touch.
-      icoWire.rotation.y = -t * 0.12;
-      icoPoints.rotation.y = -t * 0.12;
+    const t = (now - t0) / 1000;
 
-      // Orbit the knot.
-      knot.position.x = Math.cos(t * 0.6) * 3.2;
-      knot.position.z = Math.sin(t * 0.6) * 3.2 - 0.5;
-      knot.rotation.x = t * 0.7;
-      knot.rotation.y = t * 0.9;
+    // Smooth pointer follow.
+    pointer.x += (pointer.tx - pointer.x) * 0.06;
+    pointer.y += (pointer.ty - pointer.y) * 0.06;
 
-      // Inner sphere subtle pulse.
-      const s = 1 + Math.sin(t * 0.9) * 0.04;
-      innerSphere.scale.setScalar(s);
-      innerMat.uniforms.uTime.value = t;
+    ctx.clearRect(0, 0, w, h);
 
-      // Drift the particles upward, wrap back.
-      const pos = particleGeo.attributes.position.array;
-      for (let i = 0; i < particleCount; i++) {
-        pos[i * 3 + 1] += 0.0035 * speeds[i];
-        if (pos[i * 3 + 1] > 7) pos[i * 3 + 1] = -7;
+    const cx = w / 2;
+    const cy = h / 2;
+    const maxDist = Math.hypot(cx, cy);
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = c * gap;
+        const y = r * gap;
+
+        // Distance from center of canvas.
+        const dist = Math.hypot(x - cx, y - cy);
+        // Radial wave: a ring that slowly expands outward.
+        const wave = Math.sin(dist * 0.04 - t * 1.8) * 0.5 + 0.5;
+
+        // Distance from pointer → local glow.
+        const pDist = Math.hypot(x - pointer.x, y - pointer.y);
+        const pGlow = Math.max(0, 1 - pDist / 160);
+
+        // Base opacity: fades toward edges.
+        const edgeFade = 1 - (dist / maxDist) * 0.7;
+        const alpha = (0.08 + wave * 0.18 + pGlow * 0.35) * edgeFade;
+
+        // Lerp from lavender → cyan based on wave.
+        const mix = wave * 0.6 + pGlow * 0.4;
+        const cr = baseColor[0] + (cyanColor[0] - baseColor[0]) * mix;
+        const cg = baseColor[1] + (cyanColor[1] - baseColor[1]) * mix;
+        const cb = baseColor[2] + (cyanColor[2] - baseColor[2]) * mix;
+
+        const radius = 1 + wave * 0.6 + pGlow * 1.2;
+
+        ctx.fillStyle = `rgba(${cr | 0},${cg | 0},${cb | 0},${alpha.toFixed(3)})`;
+        ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
       }
-      particleGeo.attributes.position.needsUpdate = true;
-      particles.rotation.y = t * 0.02;
-
-      renderer.render(scene, camera);
     }
-
-    requestAnimationFrame(tick);
   }
-  tick();
+  requestAnimationFrame(draw);
 })();
 
 /* ------------------------------------------------------------
@@ -364,41 +242,51 @@ document.querySelectorAll("[data-copy]").forEach((btn) => {
     }
   }
 
-  async function run() {
-    while (true) {
-      for (const step of steps) {
-        switch (step.type) {
-          case "line":
-            appendLine(step.text, step.cls);
-            await sleep(40);
-            break;
-          case "prompt":
-            appendPrompt();
-            break;
-          case "type":
-            if (step.ghost) break;
-            await typeInto(step.text, step.speed);
-            break;
-          case "newline":
-            pre.appendChild(document.createTextNode("\n"));
-            break;
-          case "delay":
-            await sleep(step.ms);
-            break;
-          case "restart":
-            clear();
-            break;
-        }
-        // Keep the terminal output pinned without moving the page viewport.
-        scrollTerminalToBottom();
-      }
-    }
+  // Track visibility so we can pause the typing when off-screen.
+  let termVisible = false;
+  const termIO = new IntersectionObserver(
+    (entries) => { for (const e of entries) termVisible = e.isIntersecting; },
+    { threshold: 0.1 }
+  );
+  termIO.observe(pre);
+
+  // Wait helper that also pauses while the terminal is off-screen.
+  async function waitVisible(ms) {
+    await sleep(ms);
+    while (!termVisible) await sleep(200);
   }
 
-  // Only animate when the terminal is in view, to keep the
-  // animation perceived as "live" when users get there.
+  async function run() {
+    for (const step of steps) {
+      if (step.type === "restart") break; // single play — skip restart
+      switch (step.type) {
+        case "line":
+          appendLine(step.text, step.cls);
+          await waitVisible(40);
+          break;
+        case "prompt":
+          appendPrompt();
+          break;
+        case "type":
+          if (step.ghost) break;
+          await typeInto(step.text, step.speed);
+          break;
+        case "newline":
+          pre.appendChild(document.createTextNode("\n"));
+          break;
+        case "delay":
+          await waitVisible(step.ms);
+          break;
+      }
+      scrollTerminalToBottom();
+    }
+    // Animation done — show a blinking cursor at the end.
+    if (cursor) cursor.style.display = "inline-block";
+  }
+
+  // Start the animation once the terminal scrolls into view.
   let started = false;
-  const io = new IntersectionObserver(
+  const startIO = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting && !started) {
@@ -409,5 +297,5 @@ document.querySelectorAll("[data-copy]").forEach((btn) => {
     },
     { threshold: 0.2 }
   );
-  io.observe(pre);
+  startIO.observe(pre);
 })();
