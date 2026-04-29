@@ -632,7 +632,10 @@ button {
 .terminal-body {
   position: relative;
   padding: 22px 22px 60px;
-  min-height: 420px;
+  height: clamp(420px, 58vh, 680px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   color: var(--text);
   background:
     repeating-linear-gradient(180deg, transparent 0 22px, rgba(255, 255, 255, 0.01) 22px 23px);

@@ -272,6 +272,7 @@ document.querySelectorAll("[data-copy]").forEach((btn) => {
 (function initTerminal() {
   const pre = document.getElementById("terminal-pre");
   const cursor = document.querySelector(".terminal-cursor");
+  const terminalBody = document.getElementById("terminal-body");
   if (!pre) return;
 
   // Scripted “session”. Each step is either typed input or
@@ -341,6 +342,12 @@ document.querySelectorAll("[data-copy]").forEach((btn) => {
 
   function clear() {
     while (pre.firstChild) pre.removeChild(pre.firstChild);
+    if (terminalBody) terminalBody.scrollTop = 0;
+  }
+
+  function scrollTerminalToBottom() {
+    if (!terminalBody) return;
+    terminalBody.scrollTop = terminalBody.scrollHeight;
   }
 
   function sleep(ms) {
@@ -382,8 +389,8 @@ document.querySelectorAll("[data-copy]").forEach((btn) => {
             clear();
             break;
         }
-        // Keep cursor near the end while content grows.
-        if (cursor) cursor.scrollIntoView({ block: "end" });
+        // Keep the terminal output pinned without moving the page viewport.
+        scrollTerminalToBottom();
       }
     }
   }
