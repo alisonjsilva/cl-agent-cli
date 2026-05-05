@@ -1,5 +1,7 @@
 # cl-agent-cli
 
+[![npm](https://img.shields.io/npm/v/cl-agent-cli)](https://www.npmjs.com/package/cl-agent-cli)
+
 Open-source terminal agent for [Commerce Layer](https://commercelayer.io). It gives you a local, interactive CLI for exploring and operating Commerce Layer resources with natural language, while keeping mutations behind explicit confirmation prompts.
 
 ## Highlights
