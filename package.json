@@ -1,6 +1,6 @@
 {
   "name": "cl-agent-cli",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Interactive CLI agent for Commerce Layer — bring your own LLM provider.",
   "type": "module",
   "bin": {
