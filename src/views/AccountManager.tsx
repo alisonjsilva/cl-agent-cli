@@ -44,10 +44,6 @@ export const AccountManager: React.FC<AccountManagerProps> = ({ onBack }) => {
         setNewEndpoint(v);
         setStep("add_auth");
         break;
-      case "add_auth":
-        setNewAuth(v.startsWith("t") ? "token" : "client");
-        setStep(v.startsWith("t") ? "add_token" : "add_clientId");
-        break;
       case "add_clientId":
         setNewClientId(v);
         setStep("add_clientSecret");
@@ -82,11 +78,36 @@ export const AccountManager: React.FC<AccountManagerProps> = ({ onBack }) => {
     }
   };
 
+  if (step === "add_auth") {
+    return (
+      <Box flexDirection="column" padding={1}>
+        <Text color="green" bold>Add Account</Text>
+        <Text dimColor>Esc to cancel</Text>
+        <Box marginTop={1} flexDirection="column">
+          <Text><Text color="cyan" bold>? </Text>Authentication mode</Text>
+          <Text color="gray">  How should the agent authenticate with Commerce Layer?</Text>
+          <Box marginTop={1}>
+            <Select
+              options={[
+                { label: "OAuth Client Credentials (recommended)", value: "client" },
+                { label: "Pre-generated Access Token", value: "token" },
+              ]}
+              onChange={(value) => {
+                const mode = value as "client" | "token";
+                setNewAuth(mode);
+                setStep(mode === "token" ? "add_token" : "add_clientId");
+              }}
+            />
+          </Box>
+        </Box>
+      </Box>
+    );
+  }
+
   if (step !== "list") {
     const labels: Record<string, { label: string; hint?: string }> = {
       add_name: { label: "Account name?", hint: "e.g. prod, staging, sandbox" },
       add_endpoint: { label: "CL base endpoint?", hint: "e.g. yourdomain or yourdomain.commercelayer.io" },
-      add_auth: { label: "Auth mode? (client | token)", hint: "client = OAuth client credentials" },
       add_clientId: { label: "Client ID?" },
       add_clientSecret: { label: "Client Secret?", hint: "leave blank for public client" },
       add_token: { label: "Access Token?" },
