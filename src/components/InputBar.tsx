@@ -39,6 +39,7 @@ export const InputBar: React.FC<InputBarProps> = React.memo(({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [spinTick, setSpinTick] = useState(0);
   const [escHint, setEscHint] = useState(false);
+  const [autocompleteKey, setAutocompleteKey] = useState(0);
   const lastEscRef = useRef(0);
   const escHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -76,6 +77,7 @@ export const InputBar: React.FC<InputBarProps> = React.memo(({
     if (!cmd) return false;
     if (cmd.args) {
       onChange("/" + cmd.name + " ");
+      setAutocompleteKey((k) => k + 1);
     } else {
       onChange("");
       onSubmit("/" + cmd.name);
@@ -192,6 +194,7 @@ export const InputBar: React.FC<InputBarProps> = React.memo(({
             <Text color="gray">{placeholder ?? "…"}</Text>
           ) : (
             <TextInput
+              key={autocompleteKey}
               value={value}
               onChange={onChange}
               onSubmit={handleSubmit}
