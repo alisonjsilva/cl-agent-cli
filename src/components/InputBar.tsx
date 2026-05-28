@@ -23,6 +23,7 @@ interface InputBarProps {
   placeholder?: string;
   account?: string | null;
   env?: EnvironmentType;
+  history?: string[];
 }
 
 export const InputBar: React.FC<InputBarProps> = React.memo(({
@@ -35,6 +36,7 @@ export const InputBar: React.FC<InputBarProps> = React.memo(({
   placeholder,
   account,
   env = "unknown",
+  history = [],
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [spinTick, setSpinTick] = useState(0);
@@ -42,6 +44,24 @@ export const InputBar: React.FC<InputBarProps> = React.memo(({
   const [autocompleteKey, setAutocompleteKey] = useState(0);
   const lastEscRef = useRef(0);
   const escHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // History navigation state (-1 = current input, 0 = most recent, etc.)
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const draftRef = useRef("");
+  const navigatingHistoryRef = useRef(false);
+
+  const handleChange = (v: string) => {
+    if (navigatingHistoryRef.current) {
+      navigatingHistoryRef.current = false;
+    } else {
+      // User is typing — reset history position
+      if (historyIndex !== -1) {
+        setHistoryIndex(-1);
+        draftRef.current = "";
+      }
+    }
+    onChange(v);
+  };
 
   // Spinner for busy state
   useEffect(() => {
@@ -90,11 +110,34 @@ export const InputBar: React.FC<InputBarProps> = React.memo(({
       completeSelected();
       return;
     }
+    setHistoryIndex(-1);
+    draftRef.current = "";
     onSubmit(text);
   };
 
   useInput((input, key) => {
     if (key.ctrl && input === "c") process.exit(0);
+
+    // History navigation (only when autocomplete is not showing)
+    if (!showAutocomplete && !busy && !disabled) {
+      if (key.upArrow && history.length > 0) {
+        const nextIdx = historyIndex + 1;
+        if (nextIdx < history.length) {
+          if (historyIndex === -1) draftRef.current = value;
+          setHistoryIndex(nextIdx);
+          navigatingHistoryRef.current = true;
+          onChange(history[history.length - 1 - nextIdx]!);
+        }
+        return;
+      }
+      if (key.downArrow && historyIndex >= 0) {
+        const nextIdx = historyIndex - 1;
+        setHistoryIndex(nextIdx);
+        navigatingHistoryRef.current = true;
+        onChange(nextIdx < 0 ? draftRef.current : history[history.length - 1 - nextIdx]!);
+        return;
+      }
+    }
 
     // Detect ESC: key.escape OR raw \x1b character
     const isEsc = key.escape || input === "\x1b";
@@ -196,7 +239,7 @@ export const InputBar: React.FC<InputBarProps> = React.memo(({
             <TextInput
               key={autocompleteKey}
               value={value}
-              onChange={onChange}
+              onChange={handleChange}
               onSubmit={handleSubmit}
               placeholder={placeholder ?? "Ask about orders, customers, SKUs…"}
             />

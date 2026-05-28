@@ -91,6 +91,7 @@ const AppInner: React.FC = () => {
   const { entries, busy, streamingText, sessionStats, send, clear, append, cancel } = useAgent(cfg, tools);
 
   const [input, setInput] = useState("");
+  const [inputHistory, setInputHistory] = useState<string[]>([]);
   const env = account ? detectEnvironment(account) : "unknown";
   const pendingConfirmationWord = pendingConfirm
     ? isDestructiveToolName(pendingConfirm.toolName)
@@ -112,6 +113,7 @@ const AppInner: React.FC = () => {
   handleSubmitRef.current = async (line: string) => {
     if (!line.trim()) return;
     setInput("");
+    setInputHistory((prev) => [...prev, line]);
 
     if (line.startsWith("/")) {
       await handleCommand(line);
@@ -325,6 +327,7 @@ const AppInner: React.FC = () => {
         }
         account={cfg.activeAccount}
         env={env}
+        history={inputHistory}
       />
 
       <StatusBar />
