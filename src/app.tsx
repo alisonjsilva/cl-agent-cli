@@ -3,7 +3,7 @@ import { Box, useApp } from "ink";
 import type { ToolSet } from "ai";
 import { Config } from "./config/schema.js";
 import { getActiveAccount, detectEnvironment } from "./config/accounts.js";
-import { loadConfig } from "./config/store.js";
+import { loadConfig, configPath } from "./config/store.js";
 import { ConfigProvider, useConfig } from "./hooks/useConfig.js";
 import { useRouter } from "./hooks/useRouter.js";
 import { useAgent } from "./hooks/useAgent.js";
@@ -137,6 +137,7 @@ const AppInner: React.FC = () => {
   /key <apiKey>      Set API key for current provider
   /settings          Open settings (provider, model, etc.)
   /config            Show config (redacted)
+  /edit              Open config file in your editor
   /docs [on|off]     Toggle docs MCP semantic search (default: on)
   /clear             Clear chat
   /quit              Quit`,
@@ -229,6 +230,19 @@ const AppInner: React.FC = () => {
           if (redacted.accounts[a]?.accessToken) redacted.accounts[a].accessToken = "***";
         }
         append({ kind: "info", text: JSON.stringify(redacted, null, 2) });
+        break;
+      }
+
+      case "edit": {
+        const filePath = configPath();
+        const { execFile } = await import("node:child_process");
+        const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "notepad" : "xdg-open";
+        execFile(opener, [filePath], (err) => {
+          if (err) {
+            append({ kind: "error", text: `Could not open config file. Open it manually:\n  ${filePath}` });
+          }
+        });
+        append({ kind: "info", text: `Opening config file:\n  ${filePath}` });
         break;
       }
 

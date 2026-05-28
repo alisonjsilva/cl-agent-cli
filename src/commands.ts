@@ -12,6 +12,7 @@ export const COMMANDS: CommandDef[] = [
   { name: "key", description: "Set API key", args: "<apiKey>" },
   { name: "settings", description: "Open settings" },
   { name: "config", description: "Show config (redacted)" },
+  { name: "edit", description: "Open config file in editor" },
   { name: "clear", description: "Clear chat" },
   { name: "quit", description: "Quit" },
 ];

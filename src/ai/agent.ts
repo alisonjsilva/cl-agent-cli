@@ -127,7 +127,12 @@ function retryDelay(attempt: number): number {
   return base + jitter;
 }
 
-function friendlyErrorMessage(digest: ErrorDigest): string {
+interface ErrorContext {
+  provider?: string;
+  modelId?: string;
+}
+
+function friendlyErrorMessage(digest: ErrorDigest, ctx?: ErrorContext): string {
   const hint = digest.providerMessage?.slice(0, 150);
 
   switch (digest.kind) {
@@ -137,8 +142,17 @@ function friendlyErrorMessage(digest: ErrorDigest): string {
         : "Rate limited by the LLM provider. Retrying automatically...";
     case "context_overflow":
       return "Conversation too long for the model's context window. History was trimmed — please retry.";
-    case "auth":
-      return "Authentication failed. Check your API key with /key or /provider.";
+    case "auth": {
+      const parts: string[] = ["Authentication failed"];
+      if (ctx?.provider || ctx?.modelId) {
+        const target = [ctx.provider, ctx.modelId].filter(Boolean).join("/");
+        parts[0] += ` for ${target}`;
+      }
+      parts[0] += ".";
+      if (hint) parts.push(`Reason: ${hint}`);
+      parts.push("Check your API key with /key or switch provider with /provider.");
+      return parts.join(" ");
+    }
     case "timeout":
       return "Request timed out. The model may not support tool calling, or the provider is unresponsive. Try a different model with /model.";
     case "cancelled":
@@ -430,6 +444,10 @@ export class Agent {
         lastError = err;
         const digest = digestError(err);
         const raw = err instanceof Error ? err.message : String(err);
+        const model = this.opts.model;
+        const errCtx: ErrorContext = typeof model === "string"
+          ? { modelId: model }
+          : { provider: model.provider, modelId: model.modelId };
 
         debugLog("error", `LLM error (${digest.kind}/${digest.statusCode ?? "?"}): ${raw.slice(0, 200)}`);
 
@@ -448,7 +466,7 @@ export class Agent {
           const waitMs = retryDelay(attempt);
           this.opts.emit({
             type: "error",
-            message: `${friendlyErrorMessage(digest)} (retry in ${Math.round(waitMs / 1000)}s)`,
+            message: `${friendlyErrorMessage(digest, errCtx)} (retry in ${Math.round(waitMs / 1000)}s)`,
           });
           await new Promise((resolve) => setTimeout(resolve, waitMs));
           continue;
@@ -456,7 +474,7 @@ export class Agent {
 
         this.opts.emit({
           type: "error",
-          message: friendlyErrorMessage(digest),
+          message: friendlyErrorMessage(digest, errCtx),
         });
         this.opts.emit({ type: "stats", stats: this.getStats() });
         return false;
